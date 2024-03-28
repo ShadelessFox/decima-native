@@ -1,52 +1,46 @@
-#include "memory.h"
 #include "rtti.h"
-#include "hashmap.h"
 #include "json.h"
 
 #include <Windows.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <malloc.h>
+#include <search.h>
 
-static const uint8_t type_pattern[] = {0xff, 0xff, 0xff, 0xff};
+#include <hashmap.h>
+#include <detours.h>
 
-static void ScanTypes(struct hashmap *result);
-
-static void RegisterTypes(struct hashmap *registered, struct hashmap *scanned);
-
-static void ExportTypes(FILE *file, struct hashmap *types);
-
-static uint64_t RTTITypeHash(const void *item, uint64_t seed0, uint64_t seed1) {
-    const char *name = RTTI_Name(*(struct RTTI **) item);
+static uint64_t RTTI_Hash(const void *item, uint64_t seed0, uint64_t seed1) {
+    const char *name = RTTI_FullName(*(struct RTTI **) item);
     return hashmap_sip(name, strlen(name), seed0, seed1);
 }
 
-static int RTTITypeCompare(const void *a, const void *b, void *data) {
+static int RTTI_Compare(const void *a, const void *b, void *data) {
     (void) data;
-    return strcmp(RTTI_Name(*(struct RTTI **) a), RTTI_Name(*(struct RTTI **) b));
+    return strcmp(RTTI_FullName(*(struct RTTI **) a), RTTI_FullName(*(struct RTTI **) b));
 }
 
-static int RTTITypeOrder(struct RTTI *rtti) {
-    switch (rtti->type) {
-        case RTTIType_Class:
+static int RTTIKind_Order(struct RTTI *rtti) {
+    switch (rtti->kind) {
+        case RTTIKind_Class:
             return 0;
-        case RTTIType_Enum:
+        case RTTIKind_Enum:
             return 1;
-        case RTTIType_EnumFlags:
+        case RTTIKind_EnumFlags:
             return 2;
-        case RTTIType_Primitive:
+        case RTTIKind_Atom:
             return 3;
         default:
             return 4;
     }
 }
 
-static int RTTITypeCompareLexical(const void *a, const void *b) {
+static int RTTIKind_CompareLexical(const void *a, const void *b) {
     struct RTTI *a_rtti = *(struct RTTI **) a;
     struct RTTI *b_rtti = *(struct RTTI **) b;
 
-    int order_a = RTTITypeOrder(a_rtti);
-    int order_b = RTTITypeOrder(b_rtti);
+    int order_a = RTTIKind_Order(a_rtti);
+    int order_b = RTTIKind_Order(b_rtti);
 
     if (order_a != order_b)
         return order_a - order_b;
@@ -54,212 +48,223 @@ static int RTTITypeCompareLexical(const void *a, const void *b) {
     return strcmp(RTTI_Name(a_rtti), RTTI_Name(b_rtti));
 }
 
-static struct hashmap *scanned_types;
-static struct hashmap *registered_types;
-static struct Section rdata, data;
+struct RegisteredType {
+    uint64_t hash;
+    struct RTTI *type;
+};
+
+struct Array_RegisteredType {
+    struct RegisteredType *data;
+    uint32_t count;
+    uint32_t capacity;
+};
+
+static_assert(sizeof(struct RegisteredType) == 0x10, "sizeof(struct RegisteredType) == 0x10");
+
+struct FactoryManager {
+    uintptr_t vtbl;
+    struct Array_RegisteredType types;
+};
+
+static void ExportTypes(FILE *, struct hashmap *);
+
+static void ScanTypes(struct hashmap *, const struct Array_RegisteredType *);
+
+static void ScanType(struct RTTI *, struct hashmap *);
+
+static struct hashmap *all_types;
+
+// 48 89 6B 58 FF 15 ? ? ? ? 40 38 2D ? ? ? ? 48 89 6B 68
+static struct FactoryManager **s_factory_manager = (struct FactoryManager **) 0x7FF782550620;
+
+// 40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24
+static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF780BCF300;
+
+// 40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B
+static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF7800A07B0;
+
+static char RTTIFactory_RegisterType_Hook(void *a1, struct RTTI *type) {
+    printf("RTTIFactory::RegisterType: '%s' (pointer: %p)\n", RTTI_FullName(type), type);
+    ScanType(type, all_types);
+    return RTTIFactory_RegisterType(a1, type);
+}
+
+static void RTTIFactory_RegisterAllTypes_Hook() {
+    RTTIFactory_RegisterAllTypes();
+
+    FILE *file;
+    fopen_s(&file, "hfw_types.json", "w");
+    ExportTypes(file, all_types);
+    fclose(file);
+
+    puts("Saved to 'hfw_types.json'");
+}
 
 BOOL APIENTRY DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved) {
     (void) handle;
     (void) reserved;
 
-    if (reason == DLL_PROCESS_ATTACH) {
-        HMODULE module = GetModuleHandleA(NULL);
-        if (!FindSection(module, ".rdata", &rdata) || !FindSection(module, ".data", &data))
-            return FALSE;
+    if (DetourIsHelperProcess()) {
+        return TRUE;
+    }
 
+    if (reason == DLL_PROCESS_ATTACH) {
         AllocConsole();
         AttachConsole(ATTACH_PARENT_PROCESS);
         freopen("CON", "w", stdout);
 
-        scanned_types = hashmap_new(sizeof(struct RTTI *), 0, 0, 0, RTTITypeHash, RTTITypeCompare, NULL, NULL);
-        registered_types = hashmap_new(sizeof(struct RTTI *), 0, 0, 0, RTTITypeHash, RTTITypeCompare, NULL, NULL);
+        all_types = hashmap_new(sizeof(struct RTTI *), 0, 0, 0, RTTI_Hash, RTTI_Compare, NULL, NULL);
 
-        ScanTypes(scanned_types);
-        printf("Types scanned: %zu\n", hashmap_count(scanned_types));
-    }
+        DetourRestoreAfterWith();
+        DetourTransactionBegin();
+        DetourAttach((PVOID *) &RTTIFactory_RegisterAllTypes, RTTIFactory_RegisterAllTypes_Hook);
+        DetourAttach((PVOID *) &RTTIFactory_RegisterType, RTTIFactory_RegisterType_Hook);
+        DetourTransactionCommit();
+    } else if (reason == DLL_PROCESS_DETACH) {
+        DetourTransactionBegin();
+        DetourUpdateThread(GetCurrentThread());
+        DetourDetach((PVOID *) &RTTIFactory_RegisterAllTypes, RTTIFactory_RegisterAllTypes_Hook);
+        DetourDetach((PVOID *) &RTTIFactory_RegisterType, RTTIFactory_RegisterType_Hook);
+        DetourTransactionCommit();
 
-    if (reason == DLL_THREAD_ATTACH) {
-        ScanTypes(scanned_types);
-        printf("Types scanned: %zu\n", hashmap_count(scanned_types));
-    }
-
-    if (reason == DLL_PROCESS_DETACH) {
-        ScanTypes(scanned_types);
-        printf("Types scanned: %zu\n", hashmap_count(scanned_types));
-
-        RegisterTypes(registered_types, scanned_types);
-        printf("Types registered: %zu\n", hashmap_count(registered_types));
-
-        FILE *file;
-        fopen_s(&file, "types.json", "w");
-        ExportTypes(file, registered_types);
-        fclose(file);
-
-        FreeConsole();
+        hashmap_free(all_types);
     }
 
     return TRUE;
 }
 
-void ScanTypes(struct hashmap *result) {
-    void *current = rdata.start;
-    struct RTTI *rtti;
-
-    while (FindPattern(&current, data.end, (void **) &rtti, type_pattern, sizeof(type_pattern))) {
-        struct RTTIClass *rtti_class;
-        struct RTTIEnum *rtti_enum;
-        struct RTTIPrimitive *rtti_primitive;
-
-        if (RTTI_AsClass(rtti, &rtti_class)) {
-            if (!WithinSection(&rdata, rtti_class->name))
-                continue;
-
-            if (rtti_class->base.class_member_count > 0
-                ? !WithinSection(&data, rtti_class->member_table) : rtti_class->member_table != NULL)
-                continue;
-
-            if (rtti_class->base.class_inheritance_count > 0
-                ? !WithinSection(&data, rtti_class->inheritance_table) : rtti_class->inheritance_table != NULL)
-                continue;
-
-            hashmap_set(result, &rtti);
-        }
-
-        if (RTTI_AsEnum(rtti, &rtti_enum)) {
-            if (!WithinSection(&rdata, rtti_enum->name))
-                continue;
-
-            hashmap_set(result, &rtti);
-        }
-
-        if (RTTI_AsPrimitive(rtti, &rtti_primitive)) {
-            if (!WithinSection(&rdata, rtti_primitive->name) || !WithinSection(&data, rtti_primitive->parent_type))
-                continue;
-
-            hashmap_set(result, &rtti);
-        }
-    }
-}
-
-static void RegisterType(struct RTTI *rtti, struct hashmap *registered, const struct hashmap *scanned) {
-    struct RTTIContainer *rtti_container;
-    struct RTTIPrimitive *rtti_primitive;
-    struct RTTIClass *rtti_class;
+static void ScanType(struct RTTI *rtti, struct hashmap *registered) {
+    union {
+        struct RTTIContainer *container;
+        struct RTTIPointer *pointer;
+        struct RTTIAtom *atom;
+        struct RTTICompound *compound;
+    } object;
 
     if (rtti == NULL || hashmap_get(registered, &rtti) != NULL)
         return;
 
     hashmap_set(registered, &rtti);
 
-    if (RTTI_AsContainer(rtti, &rtti_container))
-        RegisterType(rtti_container->type, registered, scanned);
-    else if (RTTI_AsPrimitive(rtti, &rtti_primitive))
-        RegisterType(rtti_primitive->parent_type, registered, scanned);
-    else if (RTTI_AsClass(rtti, &rtti_class)) {
-        for (int index = 0; index < rtti_class->base.class_inheritance_count; index++)
-            RegisterType(rtti_class->inheritance_table[index].type, registered, scanned);
-        for (int index = 0; index < rtti_class->base.class_member_count; index++)
-            RegisterType(rtti_class->member_table[index].type, registered, scanned);
-        for (int index = 0; index < rtti_class->message_handler_count; index++)
-            RegisterType(rtti_class->message_handler_table[index].type, registered, scanned);
+    printf("Found type '%s' (kind: %s, pointer: %p)\n", RTTI_FullName(rtti), RTTIKind_ToString(rtti->kind), rtti);
+
+    if (RTTI_AsContainer(rtti, &object.container))
+        ScanType(object.container->item_type, registered);
+    if (RTTI_AsPointer(rtti, &object.pointer))
+        ScanType(object.pointer->item_type, registered);
+    else if (RTTI_AsAtom(rtti, &object.atom))
+        ScanType(object.atom->base_type, registered);
+    else if (RTTI_AsCompound(rtti, &object.compound)) {
+        for (int index = 0; index < object.compound->base.class_num_bases; index++)
+            ScanType(object.compound->bases[index].type, registered);
+        for (int index = 0; index < object.compound->base.class_num_attrs; index++)
+            ScanType(object.compound->attrs[index].type, registered);
+        for (int index = 0; index < object.compound->num_message_handlers; index++)
+            ScanType(object.compound->message_handlers[index].message, registered);
     }
 }
 
-void RegisterTypes(struct hashmap *registered, struct hashmap *scanned) {
-    size_t index = 0;
-    struct RTTI **item;
-
-    while (hashmap_iter(scanned, &index, (void *) &item)) {
-        RegisterType(*item, registered, scanned);
+static void ScanTypes(struct hashmap *registered, const struct Array_RegisteredType *types) {
+    for (uint32_t index = 0; index < types->count; index++) {
+        struct RegisteredType type = types->data[index];
+        printf("[%d/%d] ", index, types->count);
+        if (type.type == NULL) {
+            puts("Skipping NULL type");
+        } else {
+            ScanType(type.type, registered);
+            puts("");
+        }
     }
 }
 
 static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
-    struct RTTIClass *rtti_class;
+    struct RTTICompound *rtti_class;
     struct RTTIEnum *rtti_enum;
-    struct RTTIPrimitive *rtti_primitive;
+    struct RTTIAtom *rtti_Atom;
 
-    if (rtti->type == RTTIType_Reference || rtti->type == RTTIType_Container || rtti->type == RTTIType_POD)
+    if (rtti->kind == RTTIKind_Pointer || rtti->kind == RTTIKind_Container || rtti->kind == RTTIKind_POD)
         return;
 
     JsonNameObject(ctx, RTTI_FullName(rtti));
-    JsonNameValueStr(ctx, "type", RTTIType_ToString(rtti->type));
+    JsonNameValueStr(ctx, "kind", RTTIKind_ToString(rtti->kind));
 
-    if (RTTI_AsClass(rtti, &rtti_class)) {
+    if (RTTI_AsCompound(rtti, &rtti_class)) {
         JsonNameValueNum(ctx, "version", rtti_class->version);
         JsonNameValueNum(ctx, "flags", rtti_class->flags);
 
-        if (rtti_class->message_handler_count) {
+        if (rtti_class->num_message_handlers) {
             JsonNameArray(ctx, "messages");
 
-            for (int i = 0; i < rtti_class->message_handler_count; i++) {
-                struct RTTIClassMessageHandler *handler = &rtti_class->message_handler_table[i];
-
-                JsonValueStr(ctx, RTTI_FullName(handler->type));
+            printf("message_handlers (pointer: %p, count: %d)\n", rtti_class->message_handlers,
+                   rtti_class->num_message_handlers);
+            for (int i = 0; i < rtti_class->num_message_handlers; i++) {
+                struct RTTIMessageHandler *handler = &rtti_class->message_handlers[i];
+                printf("  message_handler %d: %p '%s'\n", i, handler->message, RTTI_FullName(handler->message));
+                JsonValueStr(ctx, RTTI_FullName(handler->message));
             }
 
             JsonEndArray(ctx);
         }
 
-        if (rtti_class->base.class_inheritance_count) {
-            JsonNameArray(ctx, "extends");
+        if (rtti_class->base.class_num_bases) {
+            JsonNameArray(ctx, "bases");
 
-            for (int i = 0; i < rtti_class->base.class_inheritance_count; i++) {
-                struct RTTIClassSuperclass *superclass = &rtti_class->inheritance_table[i];
-
+            printf("bases (pointer: %p, count: %d)\n", rtti_class->bases, rtti_class->base.class_num_bases);
+            for (int i = 0; i < rtti_class->base.class_num_bases; i++) {
+                struct RTTIBase *base = &rtti_class->bases[i];
+                printf("  base %d: %p '%s'\n", i, base->type, RTTI_FullName(base->type));
                 JsonBeginCompactObject(ctx);
-                JsonNameValueStr(ctx, "name", RTTI_FullName(superclass->type));
-                JsonNameValueNum(ctx, "offset", superclass->offset);
+                JsonNameValueStr(ctx, "name", RTTI_FullName(base->type));
+                JsonNameValueNum(ctx, "offset", base->offset);
                 JsonEndCompactObject(ctx);
             }
 
             JsonEndArray(ctx);
         }
 
-        if (rtti_class->base.class_member_count) {
-            JsonNameArray(ctx, "fields");
+        if (rtti_class->base.class_num_attrs) {
+            struct RTTIAttr *category = NULL;
 
-            struct RTTIClassMember *category = NULL;
+            JsonNameArray(ctx, "attrs");
 
-            for (int i = 0; i < rtti_class->base.class_member_count; i++) {
-                struct RTTIClassMember *member = &rtti_class->member_table[i];
+            printf("attrs (pointer: %p, count: %d)\n", rtti_class->attrs, rtti_class->base.class_num_attrs);
+            for (int i = 0; i < rtti_class->base.class_num_attrs; i++) {
+                struct RTTIAttr *attr = &rtti_class->attrs[i];
 
-                if (member->type == NULL) {
-                    category = member;
+                if (attr->type == NULL) {
+                    category = attr;
                     continue;
                 }
 
+                printf("  attr %d: %p %s ('%s')\n", i, attr->type, attr->name, RTTI_FullName(attr->type));
                 JsonBeginCompactObject(ctx);
-                JsonNameValueStr(ctx, "name", member->name);
-                JsonNameValueStr(ctx, "type", RTTI_FullName(member->type));
+                JsonNameValueStr(ctx, "name", attr->name);
+                JsonNameValueStr(ctx, "type", RTTI_FullName(attr->type));
                 JsonNameValueStr(ctx, "category", category ? category->name : "");
-                JsonNameValueNum(ctx, "offset", member->offset);
-                JsonNameValueNum(ctx, "flags", member->flags);
-                JsonNameValueBool(ctx, "is_property", member->property_get_fn || member->property_set_fn);
+                JsonNameValueNum(ctx, "offset", attr->offset);
+                JsonNameValueNum(ctx, "flags", attr->flags);
+                JsonNameValueBool(ctx, "property", attr->property_get_fn || attr->property_set_fn);
                 JsonEndCompactObject(ctx);
             }
 
             JsonEndArray(ctx);
         }
     } else if (RTTI_AsEnum(rtti, &rtti_enum)) {
-        JsonNameValueNum(ctx, "size", rtti_enum->base.enum_underlying_type_size);
+        JsonNameValueNum(ctx, "size", rtti_enum->base.enum_size);
         JsonNameArray(ctx, "values");
 
-        for (int i = 0; i < rtti_enum->base.enum_member_count; i++) {
-            struct RTTIEnumMember *m = &rtti_enum->member_table[i];
+        for (int i = 0; i < rtti_enum->num_values; i++) {
+            struct RTTIValue *m = &rtti_enum->values[i];
 
             JsonBeginCompactObject(ctx);
-            JsonNameValueNum(ctx, "value", m->value);
             JsonNameValueStr(ctx, "name", m->name);
-            if (m->alias0) JsonNameValueStr(ctx, "alias1", m->alias0);
-            if (m->alias1) JsonNameValueStr(ctx, "alias2", m->alias1);
-            if (m->alias2) JsonNameValueStr(ctx, "alias3", m->alias2);
+            JsonNameValueNum(ctx, "value", m->value);
             JsonEndCompactObject(ctx);
         }
 
         JsonEndArray(ctx);
-    } else if (RTTI_AsPrimitive(rtti, &rtti_primitive)) {
-        JsonNameValueStr(ctx, "parent_type", RTTI_FullName(rtti_primitive->parent_type));
+    } else if (RTTI_AsAtom(rtti, &rtti_Atom)) {
+        JsonNameValueStr(ctx, "base_type", RTTI_FullName(rtti_Atom->base_type));
     }
 
     JsonEndObject(ctx);
@@ -274,8 +279,10 @@ void ExportTypes(FILE *file, struct hashmap *types) {
     JsonBeginObject(&ctx);
 
     JsonNameCompactObject(&ctx, "$spec");
-    JsonNameValueNum(&ctx, "version", 3);
+    JsonNameValueNum(&ctx, "version", 4);
     JsonEndCompactObject(&ctx);
+
+    puts("Sorting types");
 
     size_t count = hashmap_count(types);
     struct RTTI **sorted = calloc(count, sizeof(struct RTTI *));
@@ -284,7 +291,9 @@ void ExportTypes(FILE *file, struct hashmap *types) {
         sorted[cur] = *item;
     }
 
-    qsort(sorted, count, sizeof(struct RTTI *), RTTITypeCompareLexical);
+    qsort(sorted, count, sizeof(struct RTTI *), RTTIKind_CompareLexical);
+
+    puts("Exporting types");
 
     for (index = 0; index < count; index++) {
         ExportType(&ctx, sorted[index]);

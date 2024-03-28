@@ -1,20 +1,20 @@
 #include "rtti.h"
 
-const char *RTTIType_ToString(enum RTTIType self) {
+const char *RTTIKind_ToString(enum RTTIKind self) {
     switch (self) {
-        case RTTIType_Primitive:
+        case RTTIKind_Atom:
             return "primitive";
-        case RTTIType_Reference:
+        case RTTIKind_Pointer:
             return "reference";
-        case RTTIType_Container:
+        case RTTIKind_Container:
             return "container";
-        case RTTIType_Enum:
+        case RTTIKind_Enum:
             return "enum";
-        case RTTIType_Class:
+        case RTTIKind_Class:
             return "class";
-        case RTTIType_EnumFlags:
+        case RTTIKind_EnumFlags:
             return "enum flags";
-        case RTTIType_POD:
+        case RTTIKind_POD:
             return "pod";
         default:
             return NULL;
@@ -22,14 +22,14 @@ const char *RTTIType_ToString(enum RTTIType self) {
 }
 
 const char *RTTI_Name(struct RTTI *rtti) {
-    if (rtti->type == RTTIType_Class)
-        return ((struct RTTIClass *) rtti)->name;
-    else if (rtti->type == RTTIType_Enum || rtti->type == RTTIType_EnumFlags)
-        return ((struct RTTIEnum *) rtti)->name;
-    else if (rtti->type == RTTIType_Primitive)
-        return ((struct RTTIPrimitive *) rtti)->name;
-    else if (rtti->type == RTTIType_Container || rtti->type == RTTIType_Reference)
-        return ((struct RTTIContainer *) rtti)->data->name;
+    if (rtti->kind == RTTIKind_Class)
+        return ((struct RTTICompound *) rtti)->type_name;
+    else if (rtti->kind == RTTIKind_Enum || rtti->kind == RTTIKind_EnumFlags)
+        return ((struct RTTIEnum *) rtti)->type_name;
+    else if (rtti->kind == RTTIKind_Atom)
+        return ((struct RTTIAtom *) rtti)->type_name;
+    else if (rtti->kind == RTTIKind_Container || rtti->kind == RTTIKind_Pointer)
+        return ((struct RTTIContainer *) rtti)->container_type->type_name;
     return NULL;
 }
 
@@ -43,7 +43,7 @@ static char *RTTI_FullNameInternal(struct RTTI *rtti, char *ptr) {
 
     if (RTTI_AsContainer(rtti, &container)) {
         *ptr++ = '<';
-        ptr = RTTI_FullNameInternal(container->type, ptr);
+        ptr = RTTI_FullNameInternal(container->item_type, ptr);
         *ptr++ = '>';
     }
 
@@ -56,9 +56,9 @@ const char *RTTI_FullName(struct RTTI *rtti) {
     return buffer;
 }
 
-_Bool RTTI_AsClass(struct RTTI *rtti, struct RTTIClass **result) {
-    if (rtti->type == RTTIType_Class) {
-        *result = (struct RTTIClass *) rtti;
+_Bool RTTI_AsCompound(struct RTTI *rtti, struct RTTICompound **result) {
+    if (rtti->kind == RTTIKind_Class) {
+        *result = (struct RTTICompound *) rtti;
         return true;
     }
 
@@ -66,7 +66,7 @@ _Bool RTTI_AsClass(struct RTTI *rtti, struct RTTIClass **result) {
 }
 
 _Bool RTTI_AsContainer(struct RTTI *rtti, struct RTTIContainer **result) {
-    if (rtti->type == RTTIType_Container || rtti->type == RTTIType_Reference) {
+    if (rtti->kind == RTTIKind_Container || rtti->kind == RTTIKind_Pointer) {
         *result = (struct RTTIContainer *) rtti;
         return true;
     }
@@ -74,8 +74,17 @@ _Bool RTTI_AsContainer(struct RTTI *rtti, struct RTTIContainer **result) {
     return false;
 }
 
+_Bool RTTI_AsPointer(struct RTTI *rtti, struct RTTIPointer **result) {
+    if (rtti->kind == RTTIKind_Pointer) {
+        *result = (struct RTTIPointer *) rtti;
+        return true;
+    }
+
+    return false;
+}
+
 _Bool RTTI_AsEnum(struct RTTI *rtti, struct RTTIEnum **result) {
-    if (rtti->type == RTTIType_Enum || rtti->type == RTTIType_EnumFlags) {
+    if (rtti->kind == RTTIKind_Enum || rtti->kind == RTTIKind_EnumFlags) {
         *result = (struct RTTIEnum *) rtti;
         return true;
     }
@@ -83,9 +92,9 @@ _Bool RTTI_AsEnum(struct RTTI *rtti, struct RTTIEnum **result) {
     return false;
 }
 
-_Bool RTTI_AsPrimitive(struct RTTI *rtti, struct RTTIPrimitive **result) {
-    if (rtti->type == RTTIType_Primitive) {
-        *result = (struct RTTIPrimitive *) rtti;
+_Bool RTTI_AsAtom(struct RTTI *rtti, struct RTTIAtom **result) {
+    if (rtti->kind == RTTIKind_Atom) {
+        *result = (struct RTTIAtom *) rtti;
         return true;
     }
 
