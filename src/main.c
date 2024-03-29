@@ -55,10 +55,10 @@ static void ExportTypes(FILE *, struct hashmap *);
 static struct hashmap *g_all_types;
 
 // 40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24
-static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF780BCF300;
+static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF716B7F540;
 
 // 40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B
-static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF7800A07B0;
+static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF7160506F0;
 
 static char RTTIFactory_RegisterType_Hook(void *a1, struct RTTI *type) {
     printf("RTTIFactory::RegisterType: '%s' (kind: %s, pointer: %p)\n", RTTI_FullName(type), RTTIKind_Name(type->kind), type);
