@@ -48,34 +48,11 @@ static int RTTIKind_CompareLexical(const void *a, const void *b) {
     return strcmp(RTTI_Name(a_rtti), RTTI_Name(b_rtti));
 }
 
-struct RegisteredType {
-    uint64_t hash;
-    struct RTTI *type;
-};
-
-struct Array_RegisteredType {
-    struct RegisteredType *data;
-    uint32_t count;
-    uint32_t capacity;
-};
-
-static_assert(sizeof(struct RegisteredType) == 0x10, "sizeof(struct RegisteredType) == 0x10");
-
-struct FactoryManager {
-    uintptr_t vtbl;
-    struct Array_RegisteredType types;
-};
+static void ScanType(struct RTTI *, struct hashmap *);
 
 static void ExportTypes(FILE *, struct hashmap *);
 
-static void ScanTypes(struct hashmap *, const struct Array_RegisteredType *);
-
-static void ScanType(struct RTTI *, struct hashmap *);
-
-static struct hashmap *all_types;
-
-// 48 89 6B 58 FF 15 ? ? ? ? 40 38 2D ? ? ? ? 48 89 6B 68
-static struct FactoryManager **s_factory_manager = (struct FactoryManager **) 0x7FF782550620;
+static struct hashmap *g_all_types;
 
 // 40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24
 static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF780BCF300;
@@ -84,8 +61,8 @@ static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF780BCF300;
 static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF7800A07B0;
 
 static char RTTIFactory_RegisterType_Hook(void *a1, struct RTTI *type) {
-    printf("RTTIFactory::RegisterType: '%s' (pointer: %p)\n", RTTI_FullName(type), type);
-    ScanType(type, all_types);
+    printf("RTTIFactory::RegisterType: '%s' (kind: %s, pointer: %p)\n", RTTI_FullName(type), RTTIKind_Name(type->kind), type);
+    ScanType(type, g_all_types);
     return RTTIFactory_RegisterType(a1, type);
 }
 
@@ -94,29 +71,26 @@ static void RTTIFactory_RegisterAllTypes_Hook() {
 
     FILE *file;
     fopen_s(&file, "hfw_types.json", "w");
-    ExportTypes(file, all_types);
+    ExportTypes(file, g_all_types);
     fclose(file);
 
     puts("Saved to 'hfw_types.json'");
+    ExitProcess(0);
 }
 
 BOOL APIENTRY DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved) {
     (void) handle;
     (void) reserved;
 
-    if (DetourIsHelperProcess()) {
-        return TRUE;
-    }
-
     if (reason == DLL_PROCESS_ATTACH) {
         AllocConsole();
         AttachConsole(ATTACH_PARENT_PROCESS);
         freopen("CON", "w", stdout);
 
-        all_types = hashmap_new(sizeof(struct RTTI *), 0, 0, 0, RTTI_Hash, RTTI_Compare, NULL, NULL);
+        g_all_types = hashmap_new(sizeof(struct RTTI *), 0, 0, 0, RTTI_Hash, RTTI_Compare, NULL, NULL);
 
-        DetourRestoreAfterWith();
         DetourTransactionBegin();
+        DetourUpdateThread(GetCurrentThread());
         DetourAttach((PVOID *) &RTTIFactory_RegisterAllTypes, RTTIFactory_RegisterAllTypes_Hook);
         DetourAttach((PVOID *) &RTTIFactory_RegisterType, RTTIFactory_RegisterType_Hook);
         DetourTransactionCommit();
@@ -127,7 +101,7 @@ BOOL APIENTRY DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved) {
         DetourDetach((PVOID *) &RTTIFactory_RegisterType, RTTIFactory_RegisterType_Hook);
         DetourTransactionCommit();
 
-        hashmap_free(all_types);
+        hashmap_free(g_all_types);
     }
 
     return TRUE;
@@ -146,7 +120,7 @@ static void ScanType(struct RTTI *rtti, struct hashmap *registered) {
 
     hashmap_set(registered, &rtti);
 
-    printf("Found type '%s' (kind: %s, pointer: %p)\n", RTTI_FullName(rtti), RTTIKind_ToString(rtti->kind), rtti);
+    printf("Found type '%s' (kind: %s, pointer: %p)\n", RTTI_FullName(rtti), RTTIKind_Name(rtti->kind), rtti);
 
     if (RTTI_AsContainer(rtti, &object.container))
         ScanType(object.container->item_type, registered);
@@ -164,19 +138,6 @@ static void ScanType(struct RTTI *rtti, struct hashmap *registered) {
     }
 }
 
-static void ScanTypes(struct hashmap *registered, const struct Array_RegisteredType *types) {
-    for (uint32_t index = 0; index < types->count; index++) {
-        struct RegisteredType type = types->data[index];
-        printf("[%d/%d] ", index, types->count);
-        if (type.type == NULL) {
-            puts("Skipping NULL type");
-        } else {
-            ScanType(type.type, registered);
-            puts("");
-        }
-    }
-}
-
 static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
     struct RTTICompound *rtti_class;
     struct RTTIEnum *rtti_enum;
@@ -186,7 +147,7 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
         return;
 
     JsonNameObject(ctx, RTTI_FullName(rtti));
-    JsonNameValueStr(ctx, "kind", RTTIKind_ToString(rtti->kind));
+    JsonNameValueStr(ctx, "kind", RTTIKind_Name(rtti->kind));
 
     if (RTTI_AsCompound(rtti, &rtti_class)) {
         JsonNameValueNum(ctx, "version", rtti_class->version);

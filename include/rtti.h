@@ -187,7 +187,7 @@ struct RTTIAtom {
 
 static_assert(sizeof(struct RTTIAtom) == 0x80, "sizeof(struct RTTIAtom) == 0x80");
 
-const char *RTTIKind_ToString(enum RTTIKind);
+const char *RTTIKind_Name(enum RTTIKind);
 
 const char *RTTI_Name(struct RTTI *);
 

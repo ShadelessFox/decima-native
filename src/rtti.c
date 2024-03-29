@@ -1,7 +1,7 @@
 #include "rtti.h"
 
-const char *RTTIKind_ToString(enum RTTIKind self) {
-    switch (self) {
+const char *RTTIKind_Name(enum RTTIKind kind) {
+    switch (kind) {
         case RTTIKind_Atom:
             return "primitive";
         case RTTIKind_Pointer:
@@ -17,6 +17,7 @@ const char *RTTIKind_ToString(enum RTTIKind self) {
         case RTTIKind_POD:
             return "pod";
         default:
+            assert(0 && "Unexpected RTTIKind");
             return NULL;
     }
 }
@@ -30,6 +31,7 @@ const char *RTTI_Name(struct RTTI *rtti) {
         return ((struct RTTIAtom *) rtti)->type_name;
     else if (rtti->kind == RTTIKind_Container || rtti->kind == RTTIKind_Pointer)
         return ((struct RTTIContainer *) rtti)->container_type->type_name;
+    assert(0 && "Unexpected RTTIKind");
     return NULL;
 }
 
