@@ -10,7 +10,7 @@ const char *RTTIKind_Name(enum RTTIKind kind) {
             return "container";
         case RTTIKind_Enum:
             return "enum";
-        case RTTIKind_Class:
+        case RTTIKind_Compound:
             return "class";
         case RTTIKind_EnumFlags:
             return "enum flags";
@@ -18,48 +18,59 @@ const char *RTTIKind_Name(enum RTTIKind kind) {
             return "pod";
         default:
             assert(0 && "Unexpected RTTIKind");
-            return NULL;
+            return "";
     }
 }
 
 const char *RTTI_Name(struct RTTI *rtti) {
-    if (rtti->kind == RTTIKind_Class)
+    if (rtti->kind == RTTIKind_Compound)
         return ((struct RTTICompound *) rtti)->type_name;
     else if (rtti->kind == RTTIKind_Enum || rtti->kind == RTTIKind_EnumFlags)
         return ((struct RTTIEnum *) rtti)->type_name;
     else if (rtti->kind == RTTIKind_Atom)
         return ((struct RTTIAtom *) rtti)->type_name;
-    else if (rtti->kind == RTTIKind_Container || rtti->kind == RTTIKind_Pointer)
-        return ((struct RTTIContainer *) rtti)->container_type->type_name;
+    else if (rtti->kind == RTTIKind_Container)
+        return ((struct RTTIContainer *) rtti)->type_name;
+    else if (rtti->kind == RTTIKind_Pointer)
+        return ((struct RTTIPointer *) rtti)->type_name;
     assert(0 && "Unexpected RTTIKind");
-    return NULL;
+    return "";
 }
 
-static char *RTTI_FullNameInternal(struct RTTI *rtti, char *ptr) {
-    struct RTTIContainer *container;
-    const char *name = RTTI_Name(rtti);
+static char *RTTI_DisplayNameInternal(struct RTTI *rtti, char *ptr) {
+    struct RTTIContainer *container = NULL;
+    const char *name;
+
+    if (RTTI_AsContainer(rtti, &container) || RTTI_AsPointer(rtti, (struct RTTIPointer **) &container)) {
+        name = container->container_type->type_name;
+    } else {
+        name = RTTI_Name(rtti);
+    }
 
     while (*name) {
         *ptr++ = *name++;
     }
 
-    if (RTTI_AsContainer(rtti, &container)) {
+    if (container) {
         *ptr++ = '<';
-        ptr = RTTI_FullNameInternal(container->item_type, ptr);
+        ptr = RTTI_DisplayNameInternal(container->item_type, ptr);
         *ptr++ = '>';
     }
 
     return ptr;
 }
 
-const char *RTTI_FullName(struct RTTI *rtti) {
+const char *RTTI_DisplayName(struct RTTI *rtti) {
+    if (rtti->kind != RTTIKind_Container && rtti->kind != RTTIKind_Pointer)
+        return RTTI_Name(rtti);
+
     static char buffer[4096];
-    *RTTI_FullNameInternal(rtti, buffer) = '\0';
+    *RTTI_DisplayNameInternal(rtti, buffer) = '\0';
     return buffer;
 }
 
 _Bool RTTI_AsCompound(struct RTTI *rtti, struct RTTICompound **result) {
-    if (rtti->kind == RTTIKind_Class) {
+    if (rtti->kind == RTTIKind_Compound) {
         *result = (struct RTTICompound *) rtti;
         return true;
     }
@@ -68,7 +79,7 @@ _Bool RTTI_AsCompound(struct RTTI *rtti, struct RTTICompound **result) {
 }
 
 _Bool RTTI_AsContainer(struct RTTI *rtti, struct RTTIContainer **result) {
-    if (rtti->kind == RTTIKind_Container || rtti->kind == RTTIKind_Pointer) {
+    if (rtti->kind == RTTIKind_Container) {
         *result = (struct RTTIContainer *) rtti;
         return true;
     }

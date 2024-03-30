@@ -10,7 +10,7 @@ enum RTTIKind {
     RTTIKind_Pointer,
     RTTIKind_Container,
     RTTIKind_Enum,
-    RTTIKind_Class,
+    RTTIKind_Compound,
     RTTIKind_EnumFlags,
     RTTIKind_POD,
 };
@@ -22,8 +22,8 @@ struct RTTI {
 
     union {
         struct {
-            uint8_t class_num_bases;
-            uint8_t class_num_attrs;
+            uint8_t bases_count;
+            uint8_t attrs_count;
         };
 
         struct {
@@ -65,7 +65,7 @@ static_assert(sizeof(struct RTTIMessageHandler) == 0x10, "sizeof(struct RTTIMess
 
 struct RTTICompound {
     struct RTTI base;
-    uint8_t num_message_handlers;
+    uint8_t message_handlers_count;
     uint8_t unk_08[2];
     uint32_t version;
     uint32_t size;
@@ -83,7 +83,7 @@ struct RTTICompound {
     struct RTTIAttr *attrs;
     struct RTTIMessageHandler *message_handlers;
     uintptr_t unk_70;
-    uintptr_t exported_symbols;
+    void* exported_symbols;
     struct RTTI *representation_type;
     uintptr_t unk_88;
     uintptr_t unk_90;
@@ -124,16 +124,7 @@ struct RTTIContainer {
 
 static_assert(sizeof(struct RTTIContainer) == 0x20, "sizeof(struct RTTIContainer) == 0x20");
 
-struct RTTIPointer {
-    struct RTTI base;
-    struct RTTI *item_type;
-    struct RTTI *pointer_type;
-    const char *type_name;
-};
-
-static_assert(sizeof(struct RTTIPointer) == 0x20, "sizeof(struct RTTIPointer) == 0x20");
-
-struct RTTIPointerInfo {
+struct RTTIPointerData {
     const char *type_name;
     uintptr_t unk_08;
     uintptr_t constructor_fn;
@@ -143,7 +134,16 @@ struct RTTIPointerInfo {
     uintptr_t copier_fn;
 };
 
-static_assert(sizeof(struct RTTIPointerInfo) == 0x38, "sizeof(struct RTTIPointerInfo) == 0x38");
+static_assert(sizeof(struct RTTIPointerData) == 0x38, "sizeof(struct RTTIPointerData) == 0x38");
+
+struct RTTIPointer {
+    struct RTTI base;
+    struct RTTI *item_type;
+    struct RTTIPointerData *pointer_type;
+    const char *type_name;
+};
+
+static_assert(sizeof(struct RTTIPointer) == 0x20, "sizeof(struct RTTIPointer) == 0x20");
 
 struct RTTIValue {
     uint64_t value;
@@ -191,7 +191,7 @@ const char *RTTIKind_Name(enum RTTIKind);
 
 const char *RTTI_Name(struct RTTI *);
 
-const char *RTTI_FullName(struct RTTI *);
+const char *RTTI_DisplayName(struct RTTI *);
 
 _Bool RTTI_AsCompound(struct RTTI *, struct RTTICompound **);
 
