@@ -222,7 +222,7 @@ struct RTTIMessageHandler
 /* 528 */
 struct RTTICompound
 {
-  _BYTE base[8];
+  RTTI base;
   unsigned __int8 num_message_handlers;
   unsigned __int8 unk_08[2];
   unsigned int version;
