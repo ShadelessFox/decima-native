@@ -328,10 +328,6 @@ void ExportIda(FILE *file, struct RTTI **types, size_t count) {
                     }
                 }
             }
-            void *exported_symbols = type_compound->exported_symbols;
-            if (exported_symbols) {
-                fprintf(file, "\tset_name(0x%p, \"%s::sExportedSymbols\");\n", exported_symbols, RTTI_Name(type));
-            }
         } else if (RTTI_AsEnum(type, &type_enum)) {
             if (type_enum->values) {
                 fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", type_enum->values, type_enum->num_values * sizeof(struct RTTIValue));

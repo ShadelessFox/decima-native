@@ -83,7 +83,7 @@ struct RTTICompound {
     struct RTTIAttr *attrs;
     struct RTTIMessageHandler *message_handlers;
     uintptr_t unk_70;
-    void* exported_symbols;
+    void* get_exported_symbols_rtti_fn;
     struct RTTI *representation_type;
     uintptr_t unk_88;
     uintptr_t unk_90;
