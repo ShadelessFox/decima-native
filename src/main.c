@@ -57,10 +57,10 @@ static void ExportIda(FILE *file, struct RTTI **types, size_t count);
 static struct hashmap *g_all_types;
 
 // 40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24
-static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF6096EF540;
+static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF74405F540;
 
 // 40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B
-static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF608BC06F0;
+static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF7435306F0;
 
 static char RTTIFactory_RegisterType_Hook(void *a1, struct RTTI *type) {
     printf("RTTIFactory::RegisterType: '%s' (kind: %s, pointer: %p)\n", RTTI_Name(type), RTTIKind_Name(type->kind), type);
@@ -335,10 +335,17 @@ void ExportIda(FILE *file, struct RTTI **types, size_t count) {
                 fprintf(file, "\tapply_type(0x%p, \"RTTIValue[%d]\");", type_enum->values, type_enum->num_values);
             }
         } else if (RTTI_AsContainer(type, &type_container)) {
-            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_container->container_type, RTTI_Name(type));
+            const char *container_name;
+            if (strcmp(type_container->container_type->type_name, "Array") == 0) {
+                // Arrays share the same info
+                container_name = type_container->container_type->type_name;
+            } else {
+                container_name = type_container->type_name;
+            }
+            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_container->container_type, container_name);
             fprintf(file, "\tapply_type(0x%p, \"RTTIContainerInfo\");\n", type_container->container_type);
         } else if (RTTI_AsPointer(type, &type_pointer)) {
-            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_pointer->pointer_type, RTTI_Name(type));
+            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_pointer->pointer_type, type_pointer->pointer_type->type_name);
             fprintf(file, "\tapply_type(0x%p, \"RTTIPointerInfo\");\n", type_pointer->pointer_type);
         }
     }
