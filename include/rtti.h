@@ -27,8 +27,8 @@ struct RTTI {
         };
 
         struct {
-            uint8_t enum_unk_06;
             uint8_t enum_size;
+            uint8_t enum_alignment;
         };
     };
 };
