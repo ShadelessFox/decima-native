@@ -1,3 +1,5 @@
+#define RTTI_STANDALONE
+
 #include "rtti.h"
 
 const char *RTTIKind_Name(enum RTTIKind kind) {

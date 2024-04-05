@@ -1,46 +1,45 @@
 #ifndef DECIMA_NATIVE_RTTI_H
 #define DECIMA_NATIVE_RTTI_H
 
+#ifdef RTTI_STANDALONE
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 
+#endif
+
+#ifdef RTTI_STANDALONE
 enum RTTIKind {
+#else
+    enum RTTIKind : __int8 {
+#endif
     RTTIKind_Atom = 0,
-    RTTIKind_Pointer,
-    RTTIKind_Container,
-    RTTIKind_Enum,
-    RTTIKind_Compound,
-    RTTIKind_EnumFlags,
-    RTTIKind_POD,
+    RTTIKind_Pointer = 1,
+    RTTIKind_Container = 2,
+    RTTIKind_Enum = 3,
+    RTTIKind_Compound = 4,
+    RTTIKind_EnumFlags = 5,
+    RTTIKind_POD = 6,
+    RTTIKind_EnumBitSet = 7,
 };
 
 struct RTTI {
     uint32_t id;
+#ifdef RTTI_STANDALONE
     uint8_t kind;
-    uint8_t unk_05;
-
-    union {
-        struct {
-            uint8_t bases_count;
-            uint8_t attrs_count;
-        };
-
-        struct {
-            uint8_t enum_size;
-            uint8_t enum_alignment;
-        };
-    };
+#else
+    enum RTTIKind kind;
+#endif
+    uint8_t rtti_factory_flags;
+    uint8_t class_bases_count_or_enum_size;
+    uint8_t class_attrs_count_or_enum_alignment;
 };
-
-static_assert(sizeof(struct RTTI) == 0x8, "sizeof(struct RTTI) == 0x8");
 
 struct RTTIBase {
     struct RTTI *type;
     uint32_t offset;
 };
-
-static_assert(sizeof(struct RTTIBase) == 0x10, "sizeof(struct RTTIBase) == 0x10");
 
 struct RTTIAttr {
     struct RTTI *type;
@@ -54,14 +53,10 @@ struct RTTIAttr {
     uint64_t unk_2C;
 };
 
-static_assert(sizeof(struct RTTIAttr) == 0x38, "sizeof(struct RTTIAttr) == 0x38");
-
 struct RTTIMessageHandler {
     struct RTTI *message;
     void *handler;
 };
-
-static_assert(sizeof(struct RTTIMessageHandler) == 0x10, "sizeof(struct RTTIMessageHandler) == 0x10");
 
 struct RTTICompound {
     struct RTTI base;
@@ -83,7 +78,7 @@ struct RTTICompound {
     struct RTTIAttr *attrs;
     struct RTTIMessageHandler *message_handlers;
     uintptr_t unk_70;
-    void* get_exported_symbols_rtti_fn;
+    void *get_exported_symbols_rtti_fn;
     struct RTTI *representation_type;
     uintptr_t unk_88;
     uintptr_t unk_90;
@@ -92,8 +87,6 @@ struct RTTICompound {
     uint32_t vtable_offset;
     uint32_t unk_AC;
 };
-
-static_assert(sizeof(struct RTTICompound) == 0xB0, "sizeof(struct RTTICompound) == 0xB0");
 
 struct RTTIContainerData {
     const char *type_name;
@@ -113,16 +106,12 @@ struct RTTIContainerData {
     uintptr_t unk_70;
 };
 
-static_assert(sizeof(struct RTTIContainerData) == 0x78, "sizeof(struct RTTIContainerData) == 0x78");
-
 struct RTTIContainer {
     struct RTTI base;
     struct RTTI *item_type;
     struct RTTIContainerData *container_type;
     const char *type_name;
 };
-
-static_assert(sizeof(struct RTTIContainer) == 0x20, "sizeof(struct RTTIContainer) == 0x20");
 
 struct RTTIPointerData {
     const char *type_name;
@@ -134,16 +123,12 @@ struct RTTIPointerData {
     uintptr_t copier_fn;
 };
 
-static_assert(sizeof(struct RTTIPointerData) == 0x38, "sizeof(struct RTTIPointerData) == 0x38");
-
 struct RTTIPointer {
     struct RTTI base;
     struct RTTI *item_type;
     struct RTTIPointerData *pointer_type;
     const char *type_name;
 };
-
-static_assert(sizeof(struct RTTIPointer) == 0x20, "sizeof(struct RTTIPointer) == 0x20");
 
 struct RTTIValue {
     uint64_t value;
@@ -153,8 +138,6 @@ struct RTTIValue {
     uint8_t unk_20[16];
 };
 
-static_assert(sizeof(struct RTTIValue) == 0x30, "sizeof(struct RTTIValue) == 0x30");
-
 struct RTTIEnum {
     struct RTTI base;
     uint16_t num_values;
@@ -163,8 +146,6 @@ struct RTTIEnum {
     struct RTTIValue *values;
     struct RTTI *representation_type;
 };
-
-static_assert(sizeof(struct RTTIEnum) == 0x28, "sizeof(struct RTTIEnum) == 0x28");
 
 struct RTTIAtom {
     struct RTTI base;
@@ -185,6 +166,20 @@ struct RTTIAtom {
     struct RTTI *representation_type;
 };
 
+
+#ifdef RTTI_STANDALONE
+
+static_assert(sizeof(struct RTTI) == 0x8, "sizeof(struct RTTI) == 0x8");
+static_assert(sizeof(struct RTTIBase) == 0x10, "sizeof(struct RTTIBase) == 0x10");
+static_assert(sizeof(struct RTTIAttr) == 0x38, "sizeof(struct RTTIAttr) == 0x38");
+static_assert(sizeof(struct RTTIMessageHandler) == 0x10, "sizeof(struct RTTIMessageHandler) == 0x10");
+static_assert(sizeof(struct RTTICompound) == 0xB0, "sizeof(struct RTTICompound) == 0xB0");
+static_assert(sizeof(struct RTTIContainerData) == 0x78, "sizeof(struct RTTIContainerData) == 0x78");
+static_assert(sizeof(struct RTTIContainer) == 0x20, "sizeof(struct RTTIContainer) == 0x20");
+static_assert(sizeof(struct RTTIPointerData) == 0x38, "sizeof(struct RTTIPointerData) == 0x38");
+static_assert(sizeof(struct RTTIPointer) == 0x20, "sizeof(struct RTTIPointer) == 0x20");
+static_assert(sizeof(struct RTTIValue) == 0x30, "sizeof(struct RTTIValue) == 0x30");
+static_assert(sizeof(struct RTTIEnum) == 0x28, "sizeof(struct RTTIEnum) == 0x28");
 static_assert(sizeof(struct RTTIAtom) == 0x80, "sizeof(struct RTTIAtom) == 0x80");
 
 const char *RTTIKind_Name(enum RTTIKind);
@@ -203,5 +198,6 @@ _Bool RTTI_AsEnum(struct RTTI *, struct RTTIEnum **);
 
 _Bool RTTI_AsAtom(struct RTTI *, struct RTTIAtom **);
 
+#endif
 
 #endif //DECIMA_NATIVE_RTTI_H
