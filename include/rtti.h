@@ -32,8 +32,24 @@ struct RTTI {
     enum RTTIKind kind;
 #endif
     uint8_t rtti_factory_flags;
+#ifdef RTTI_STANDALONE
+    union {
+        struct {
+            uint16_t atom_size;
+        };
+        struct {
+            uint8_t class_bases_count;
+            uint8_t class_attrs_count;
+        };
+        struct {
+            uint8_t enum_size;
+            uint8_t enum_alignment;
+        };
+    };
+#else
     uint8_t class_bases_count_or_enum_size;
     uint8_t class_attrs_count_or_enum_alignment;
+#endif
 };
 
 struct RTTIBase {
@@ -90,7 +106,9 @@ struct RTTICompound {
 
 struct RTTIContainerData {
     const char *type_name;
-    uintptr_t unk_08;
+    uint16_t size;
+    uint8_t alignment;
+    uint8_t unk_0B[4];
     uintptr_t constructor_fn;
     uintptr_t destructor_fn;
     uintptr_t unk_20;
@@ -115,7 +133,9 @@ struct RTTIContainer {
 
 struct RTTIPointerData {
     const char *type_name;
-    uintptr_t unk_08;
+    uint32_t size;
+    uint8_t alignment;
+    uint8_t unk_0D[3];
     uintptr_t constructor_fn;
     uintptr_t destructor_fn;
     uintptr_t getter_fn;
@@ -149,7 +169,8 @@ struct RTTIEnum {
 
 struct RTTIAtom {
     struct RTTI base;
-    uint8_t unk_08[8];
+    uint8_t alignment;
+    uint8_t unk_08[7];
     const char *type_name;
     struct RTTI *base_type;
     uintptr_t from_string_fn;

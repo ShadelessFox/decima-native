@@ -148,9 +148,9 @@ static void ScanType(struct RTTI *rtti, struct hashmap *registered) {
     else if (RTTI_AsAtom(rtti, &object.atom))
         ScanType(object.atom->base_type, registered);
     else if (RTTI_AsCompound(rtti, &object.compound)) {
-        for (int index = 0; index < object.compound->base.class_bases_count_or_enum_size; index++)
+        for (int index = 0; index < object.compound->base.class_bases_count; index++)
             ScanType(object.compound->bases[index].type, registered);
-        for (int index = 0; index < object.compound->base.class_attrs_count_or_enum_alignment; index++)
+        for (int index = 0; index < object.compound->base.class_attrs_count; index++)
             ScanType(object.compound->attrs[index].type, registered);
         for (int index = 0; index < object.compound->message_handlers_count; index++)
             ScanType(object.compound->message_handlers[index].message, registered);
@@ -186,11 +186,11 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
             JsonEndArray(ctx);
         }
 
-        if (rtti_class->base.class_bases_count_or_enum_size) {
+        if (rtti_class->base.class_bases_count) {
             JsonNameArray(ctx, "bases");
 
-            printf("bases (pointer: %p, count: %d)\n", rtti_class->bases, rtti_class->base.class_bases_count_or_enum_size);
-            for (int i = 0; i < rtti_class->base.class_bases_count_or_enum_size; i++) {
+            printf("bases (pointer: %p, count: %d)\n", rtti_class->bases, rtti_class->base.class_bases_count);
+            for (int i = 0; i < rtti_class->base.class_bases_count; i++) {
                 struct RTTIBase *base = &rtti_class->bases[i];
                 printf("  base %d: %p '%s'\n", i, base->type, RTTI_Name(base->type));
                 JsonBeginCompactObject(ctx);
@@ -202,13 +202,13 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
             JsonEndArray(ctx);
         }
 
-        if (rtti_class->base.class_attrs_count_or_enum_alignment) {
+        if (rtti_class->base.class_attrs_count) {
             struct RTTIAttr *category = NULL;
 
             JsonNameArray(ctx, "attrs");
 
-            printf("attrs (pointer: %p, count: %d)\n", rtti_class->attrs, rtti_class->base.class_attrs_count_or_enum_alignment);
-            for (int i = 0; i < rtti_class->base.class_attrs_count_or_enum_alignment; i++) {
+            printf("attrs (pointer: %p, count: %d)\n", rtti_class->attrs, rtti_class->base.class_attrs_count);
+            for (int i = 0; i < rtti_class->base.class_attrs_count; i++) {
                 struct RTTIAttr *attr = &rtti_class->attrs[i];
 
                 if (attr->type == NULL) {
@@ -230,7 +230,7 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
             JsonEndArray(ctx);
         }
     } else if (RTTI_AsEnum(rtti, &rtti_enum)) {
-        JsonNameValueNum(ctx, "size", rtti_enum->base.class_bases_count_or_enum_size);
+        JsonNameValueNum(ctx, "size", rtti_enum->base.enum_size);
         JsonNameArray(ctx, "values");
 
         for (int i = 0; i < rtti_enum->num_values; i++) {
@@ -303,14 +303,14 @@ void ExportIda(FILE *file, struct RTTI **types, size_t count) {
         if (RTTI_AsCompound(type, &type_compound)) {
             struct RTTIBase *bases = type_compound->bases;
             if (bases) {
-                uint8_t bases_count = type->class_bases_count_or_enum_size;
+                uint8_t bases_count = type->class_bases_count;
                 fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", bases, bases_count * sizeof(struct RTTIBase));
                 fprintf(file, "\tapply_type(0x%p, \"RTTIBase[%d]\");\n", bases, bases_count);
                 fprintf(file, "\tset_name(0x%p, \"%s::sBases\");\n", bases, RTTI_Name(type));
             }
             struct RTTIAttr *attrs = type_compound->attrs;
             if (attrs) {
-                uint8_t attrs_count = type->class_attrs_count_or_enum_alignment;
+                uint8_t attrs_count = type->class_attrs_count;
                 fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", attrs, attrs_count * sizeof(struct RTTIAttr));
                 fprintf(file, "\tset_name(0x%p, \"%s::sAttrs\");\n", attrs, RTTI_Name(type));
                 fprintf(file, "\tapply_type(0x%p, \"RTTIAttr[%d]\");\n", attrs, attrs_count);
