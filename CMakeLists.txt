@@ -20,6 +20,7 @@ add_library(decima_native SHARED
         src/rtti.c
         src/exports.c
         src/json.c
+        src/memory.c
         src/main.c
 )
 

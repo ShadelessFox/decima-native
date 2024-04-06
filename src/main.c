@@ -1,7 +1,12 @@
 #define RTTI_STANDALONE
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include "rtti.h"
 #include "json.h"
+#include "memory.h"
 
 #include <Windows.h>
 #include <stdio.h>
@@ -11,6 +16,7 @@
 
 #include <hashmap.h>
 #include <detours.h>
+#include <stdlib.h>
 
 static uint64_t RTTI_Hash(const void *item, uint64_t seed0, uint64_t seed1) {
     const char *name = RTTI_Name(*(struct RTTI **) item);
@@ -58,11 +64,9 @@ static void ExportIda(FILE *file, struct RTTI **types, size_t count);
 
 static struct hashmap *g_all_types;
 
-// 40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24
-static void (*RTTIFactory_RegisterAllTypes)() = (void (*)()) 0x7FF652E31420;
+static void (*RTTIFactory_RegisterAllTypes)();
 
-// 40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B
-static char (*RTTIFactory_RegisterType)(void *, struct RTTI *) = (char (*)(void *, struct RTTI *)) 0x7FF652302510;
+static char (*RTTIFactory_RegisterType)(void *, struct RTTI *);
 
 static char RTTIFactory_RegisterType_Hook(void *a1, struct RTTI *type) {
     printf("RTTIFactory::RegisterType: '%s' (kind: %s, pointer: %p)\n", RTTI_Name(type), RTTIKind_Name(type->kind), type);
@@ -105,6 +109,27 @@ _Bool APIENTRY DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved) {
         AllocConsole();
         AttachConsole(ATTACH_PARENT_PROCESS);
         freopen("CON", "w", stdout);
+
+        struct Section section;
+        if (!FindSection(GetModuleHandleA(NULL), ".text", &section)) {
+            perror("Unable to find '.text' section in the executable");
+            return FALSE;
+        }
+
+        if (!FindPattern(section.start, section.end, "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24",
+                         (void **) &RTTIFactory_RegisterAllTypes)) {
+            perror("Unable to find 'RTTIFactory::RegisterAllTypes' function in the executable");
+            return FALSE;
+        }
+
+        if (!FindPattern(section.start, section.end, "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B",
+                         (void **) &RTTIFactory_RegisterType)) {
+            perror("Unable to find 'RTTIFactory::RegisterType' function in the executable");
+            return FALSE;
+        }
+
+        printf("Found RTTIFactory::RegisterAllTypes at %p\n", RTTIFactory_RegisterAllTypes);
+        printf("Found RTTIFactory::RegisterType at %p\n", RTTIFactory_RegisterType);
 
         g_all_types = hashmap_new(sizeof(struct RTTI *), 0, 0, 0, RTTI_Hash, RTTI_Compare, NULL, NULL);
 
