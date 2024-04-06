@@ -170,7 +170,8 @@ struct RTTIEnum {
 struct RTTIAtom {
     struct RTTI base;
     uint8_t alignment;
-    uint8_t unk_08[7];
+    uint8_t simple; ///< A simple atom is one with a fixed memory layout, such as int32, bool, etc.
+    uint8_t unk_08[6];
     const char *type_name;
     struct RTTI *base_type;
     uintptr_t from_string_fn;
