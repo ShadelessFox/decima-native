@@ -237,8 +237,6 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
         }
 
         if (rtti_class->base.class_attrs_count) {
-            struct RTTIAttr *category = NULL;
-
             JsonNameArray(ctx, "attrs");
 
             printf("attrs (pointer: %p, count: %d)\n", rtti_class->attrs, rtti_class->base.class_attrs_count);
@@ -246,7 +244,9 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
                 struct RTTIAttr *attr = &rtti_class->attrs[i];
 
                 if (attr->type == NULL) {
-                    category = attr;
+                    JsonBeginCompactObject(ctx);
+                    JsonNameValueStr(ctx, "category", attr->name);
+                    JsonEndCompactObject(ctx);
                     continue;
                 }
 
@@ -254,10 +254,14 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
                 JsonBeginCompactObject(ctx);
                 JsonNameValueStr(ctx, "name", attr->name);
                 JsonNameValueStr(ctx, "type", RTTI_DisplayName(attr->type));
-                JsonNameValueStr(ctx, "category", category ? category->name : "");
                 JsonNameValueNum(ctx, "offset", attr->offset);
                 JsonNameValueNum(ctx, "flags", attr->flags);
-                JsonNameValueBool(ctx, "property", attr->property_get_fn || attr->property_set_fn);
+                if (attr->min_value)
+                    JsonNameValueStr(ctx, "min", attr->min_value);
+                if (attr->max_value)
+                    JsonNameValueStr(ctx, "max", attr->max_value);
+                if (attr->property_get_fn || attr->property_set_fn)
+                    JsonNameValueBool(ctx, "property", 1);
                 JsonEndCompactObject(ctx);
             }
 
@@ -271,8 +275,16 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
             struct RTTIValue *m = &rtti_enum->values[i];
 
             JsonBeginCompactObject(ctx);
-            JsonNameValueStr(ctx, "name", m->name);
             JsonNameValueNum(ctx, "value", m->value);
+            JsonNameValueStr(ctx, "name", m->name);
+
+            if (m->aliases[0]) {
+                JsonNameCompactArray(ctx, "alias");
+                for (size_t j = 0; j < 4 && m->aliases[j]; j++)
+                    JsonValueStr(ctx, m->aliases[j]);
+                JsonEndArray(ctx);
+            }
+
             JsonEndCompactObject(ctx);
         }
 
@@ -290,7 +302,7 @@ void ExportTypes(FILE *file, struct RTTI **types, size_t count) {
     JsonBeginObject(&ctx);
 
     JsonNameCompactObject(&ctx, "$spec");
-    JsonNameValueNum(&ctx, "version", 4);
+    JsonNameValueStr(&ctx, "version", "5.0");
     JsonEndCompactObject(&ctx);
 
     for (size_t index = 0; index < count; index++) {
