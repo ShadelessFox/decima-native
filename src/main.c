@@ -106,6 +106,15 @@ _Bool APIENTRY DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved) {
     (void) reserved;
 
     if (reason == DLL_PROCESS_ATTACH) {
+        switch (MessageBoxA(NULL, "Do you want to dump the RTTI?", "Choose action", MB_YESNOCANCEL | MB_ICONQUESTION)) {
+            case IDYES:
+                break;
+            case IDNO:
+                return TRUE;
+            case IDCANCEL:
+                ExitProcess(0);
+        }
+
         AllocConsole();
         AttachConsole(ATTACH_PARENT_PROCESS);
         freopen("CON", "w", stdout);
