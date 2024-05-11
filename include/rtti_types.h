@@ -21,7 +21,7 @@ struct RTTIRefObject {
     uint32_t mRefCount;
 };
 
-struct String {
+struct StringData {
     uint32_t mRefCount;
     uint32_t mCRC;
     uint32_t mLength;
@@ -40,15 +40,15 @@ struct StringSlice {
 static_assert(sizeof(struct GGUUID) == 0x10, "sizeof(struct GGUUID) == 0x10");
 static_assert(sizeof(struct RTTIObject) == 0x8, "sizeof(struct RTTIObject) == 0x8");
 static_assert(sizeof(struct RTTIRefObject) == 0x20, "sizeof(struct RTTIRefObject) == 0x20");
-static_assert(sizeof(struct String) == 0x10, "sizeof(struct String) == 0x10");
+static_assert(sizeof(struct StringData) == 0x10, "sizeof(struct StringData) == 0x10");
 static_assert(sizeof(struct StringSlice) == 0x10, "sizeof(struct StringSlice) == 0x10");
 
-#define STRING_BASE(_String) ((struct String *) ((char *) (_String) - offsetof(struct String, mData)))
-#define STRING_PTR(_String) const char *
+#define STRING_BASE(_Value) ((struct String *) ((char *) (_Value) - offsetof(struct String, mData)))
+#define STRING_DATA const char *
 
 #else
 
-#define STRING_BASE(_String) _String
-#define STRING_PTR(_String) _String *__shifted(_String, sizeof(_String))
+#define STRING_BASE(_Value) (_Value)
+#define STRING_DATA const char *__shifted(struct StringData, sizeof(struct StringData))
 
 #endif
