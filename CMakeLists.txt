@@ -20,17 +20,17 @@ add_library(decima_native SHARED
         src/rtti.c
         src/exports.c
         src/json.c
-        src/memory.c
+        src/scan.c
         src/main.c
 )
 
 
 set_property(TARGET decima_native PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN)
+add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DRTTI_STANDALONE)
 target_include_directories(decima_native PRIVATE include libs/detours/src libs/hashmap)
 
 add_custom_command(TARGET decima_native POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:decima_native>
-        "\"E:\\SteamLibrary\\steamapps\\common\\Horizon Forbidden West Complete Edition\\winhttp.dll\""
+        "\"D:\\SteamLibrary\\steamapps\\common\\Horizon Forbidden West Complete Edition\\winhttp.dll\""
 )

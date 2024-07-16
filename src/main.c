@@ -1,12 +1,10 @@
-#define RTTI_STANDALONE
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 
 #include "rtti.h"
 #include "json.h"
-#include "memory.h"
+#include "scan.h"
 
 #include <Windows.h>
 #include <stdio.h>
@@ -173,21 +171,21 @@ static void ScanType(struct RTTI *rtti, struct hashmap *registered) {
 
     hashmap_set(registered, &rtti);
 
-    printf("Found type '%s' (kind: %s, pointer: %p)\n", RTTI_Name(rtti), RTTIKind_Name(rtti->kind), rtti);
+    printf("Found mType '%s' (kind: %s, pointer: %p)\n", RTTI_Name(rtti), RTTIKind_Name(rtti->kind), rtti);
 
     if (RTTI_AsContainer(rtti, &object.container))
-        ScanType(object.container->item_type, registered);
+        ScanType(object.container->mItemType, registered);
     if (RTTI_AsPointer(rtti, &object.pointer))
-        ScanType(object.pointer->item_type, registered);
+        ScanType(object.pointer->mItemType, registered);
     else if (RTTI_AsAtom(rtti, &object.atom))
-        ScanType(object.atom->base_type, registered);
+        ScanType(object.atom->mBaseType, registered);
     else if (RTTI_AsCompound(rtti, &object.compound)) {
-        for (int index = 0; index < object.compound->bases_count; index++)
-            ScanType(object.compound->bases[index].type, registered);
-        for (int index = 0; index < object.compound->attrs_count; index++)
-            ScanType(object.compound->attrs[index].type, registered);
-        for (int index = 0; index < object.compound->message_handlers_count; index++)
-            ScanType(object.compound->message_handlers[index].message, registered);
+        for (int index = 0; index < object.compound->mNumBases; index++)
+            ScanType(object.compound->mBases[index].mType, registered);
+        for (int index = 0; index < object.compound->mNumAttrs; index++)
+            ScanType(object.compound->mAttrs[index].type, registered);
+        for (int index = 0; index < object.compound->mNumMessageHandlers; index++)
+            ScanType(object.compound->mMessageHandlers[index].mMessage, registered);
     }
 }
 
@@ -203,64 +201,64 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
     JsonNameValueStr(ctx, "kind", RTTIKind_Name(rtti->kind));
 
     if (RTTI_AsCompound(rtti, &rtti_class)) {
-        JsonNameValueNum(ctx, "version", rtti_class->version);
-        JsonNameValueNum(ctx, "flags", rtti_class->flags);
+        JsonNameValueNum(ctx, "mVersion", rtti_class->mVersion);
+        JsonNameValueNum(ctx, "mFlags", rtti_class->mFlags);
 
-        if (rtti_class->message_handlers_count) {
+        if (rtti_class->mNumMessageHandlers) {
             JsonNameArray(ctx, "messages");
 
-            printf("message_handlers (pointer: %p, count: %d)\n", rtti_class->message_handlers,
-                   rtti_class->message_handlers_count);
-            for (int i = 0; i < rtti_class->message_handlers_count; i++) {
-                struct RTTIMessageHandler *handler = &rtti_class->message_handlers[i];
-                printf("  message_handler %d: %p '%s'\n", i, handler->message, RTTI_Name(handler->message));
-                JsonValueStr(ctx, RTTI_DisplayName(handler->message));
+            printf("mMessageHandlers (pointer: %p, count: %d)\n", rtti_class->mMessageHandlers,
+                   rtti_class->mNumMessageHandlers);
+            for (int i = 0; i < rtti_class->mNumMessageHandlers; i++) {
+                struct RTTIMessageHandler *handler = &rtti_class->mMessageHandlers[i];
+                printf("  message_handler %d: %p '%s'\n", i, handler->mMessage, RTTI_Name(handler->mMessage));
+                JsonValueStr(ctx, RTTI_DisplayName(handler->mMessage));
             }
 
             JsonEndArray(ctx);
         }
 
-        if (rtti_class->bases_count) {
-            JsonNameArray(ctx, "bases");
+        if (rtti_class->mNumBases) {
+            JsonNameArray(ctx, "mBases");
 
-            printf("bases (pointer: %p, count: %d)\n", rtti_class->bases, rtti_class->bases_count);
-            for (int i = 0; i < rtti_class->bases_count; i++) {
-                struct RTTIBase *base = &rtti_class->bases[i];
-                printf("  base %d: %p '%s'\n", i, base->type, RTTI_Name(base->type));
+            printf("mBases (pointer: %p, count: %d)\n", rtti_class->mBases, rtti_class->mNumBases);
+            for (int i = 0; i < rtti_class->mNumBases; i++) {
+                struct RTTIBase *base = &rtti_class->mBases[i];
+                printf("  base %d: %p '%s'\n", i, base->mType, RTTI_Name(base->mType));
                 JsonBeginCompactObject(ctx);
-                JsonNameValueStr(ctx, "name", RTTI_DisplayName(base->type));
-                JsonNameValueNum(ctx, "offset", base->offset);
+                JsonNameValueStr(ctx, "mTypeName", RTTI_DisplayName(base->mType));
+                JsonNameValueNum(ctx, "mOffset", base->mOffset);
                 JsonEndCompactObject(ctx);
             }
 
             JsonEndArray(ctx);
         }
 
-        if (rtti_class->attrs_count) {
-            JsonNameArray(ctx, "attrs");
+        if (rtti_class->mNumAttrs) {
+            JsonNameArray(ctx, "mAttrs");
 
-            printf("attrs (pointer: %p, count: %d)\n", rtti_class->attrs, rtti_class->attrs_count);
-            for (int i = 0; i < rtti_class->attrs_count; i++) {
-                struct RTTIAttr *attr = &rtti_class->attrs[i];
+            printf("mAttrs (pointer: %p, count: %d)\n", rtti_class->mAttrs, rtti_class->mNumAttrs);
+            for (int i = 0; i < rtti_class->mNumAttrs; i++) {
+                struct RTTIAttr *attr = &rtti_class->mAttrs[i];
 
                 if (attr->type == NULL) {
                     JsonBeginCompactObject(ctx);
-                    JsonNameValueStr(ctx, "category", attr->name);
+                    JsonNameValueStr(ctx, "category", attr->mName);
                     JsonEndCompactObject(ctx);
                     continue;
                 }
 
-                printf("  attr %d: %p %s ('%s')\n", i, attr->type, attr->name, RTTI_Name(attr->type));
+                printf("  attr %d: %p %s ('%s')\n", i, attr->type, attr->mName, RTTI_Name(attr->type));
                 JsonBeginCompactObject(ctx);
-                JsonNameValueStr(ctx, "name", attr->name);
-                JsonNameValueStr(ctx, "type", RTTI_DisplayName(attr->type));
-                JsonNameValueNum(ctx, "offset", attr->offset);
-                JsonNameValueNum(ctx, "flags", attr->flags);
-                if (attr->min_value)
-                    JsonNameValueStr(ctx, "min", attr->min_value);
-                if (attr->max_value)
-                    JsonNameValueStr(ctx, "max", attr->max_value);
-                if (attr->property_get_fn || attr->property_set_fn)
+                JsonNameValueStr(ctx, "mTypeName", attr->mName);
+                JsonNameValueStr(ctx, "mType", RTTI_DisplayName(attr->type));
+                JsonNameValueNum(ctx, "mOffset", attr->mOffset);
+                JsonNameValueNum(ctx, "mFlags", attr->mFlags);
+                if (attr->mMinValue)
+                    JsonNameValueStr(ctx, "min", attr->mMinValue);
+                if (attr->mMaxValue)
+                    JsonNameValueStr(ctx, "max", attr->mMaxValue);
+                if (attr->mGetter || attr->mSetter)
                     JsonNameValueBool(ctx, "property", 1);
                 JsonEndCompactObject(ctx);
             }
@@ -268,20 +266,20 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
             JsonEndArray(ctx);
         }
     } else if (RTTI_AsEnum(rtti, &rtti_enum)) {
-        JsonNameValueNum(ctx, "size", rtti_enum->size);
+        JsonNameValueNum(ctx, "mSize", rtti_enum->size);
         JsonNameArray(ctx, "values");
 
         for (int i = 0; i < rtti_enum->num_values; i++) {
             struct RTTIValue *m = &rtti_enum->values[i];
 
             JsonBeginCompactObject(ctx);
-            JsonNameValueNum(ctx, "value", m->value);
-            JsonNameValueStr(ctx, "name", m->name);
+            JsonNameValueNum(ctx, "mValue", m->mValue);
+            JsonNameValueStr(ctx, "mTypeName", m->mName);
 
-            if (m->aliases[0]) {
+            if (m->mAliases[0]) {
                 JsonNameCompactArray(ctx, "alias");
-                for (size_t j = 0; j < 4 && m->aliases[j]; j++)
-                    JsonValueStr(ctx, m->aliases[j]);
+                for (size_t j = 0; j < 4 && m->mAliases[j]; j++)
+                    JsonValueStr(ctx, m->mAliases[j]);
                 JsonEndArray(ctx);
             }
 
@@ -290,7 +288,7 @@ static void ExportType(struct JsonContext *ctx, struct RTTI *rtti) {
 
         JsonEndArray(ctx);
     } else if (RTTI_AsAtom(rtti, &rtti_Atom)) {
-        JsonNameValueStr(ctx, "base_type", RTTI_DisplayName(rtti_Atom->base_type));
+        JsonNameValueStr(ctx, "mBaseType", RTTI_DisplayName(rtti_Atom->mBaseType));
     }
 
     JsonEndObject(ctx);
@@ -302,7 +300,7 @@ void ExportTypes(FILE *file, struct RTTI **types, size_t count) {
     JsonBeginObject(&ctx);
 
     JsonNameCompactObject(&ctx, "$spec");
-    JsonNameValueStr(&ctx, "version", "5.0");
+    JsonNameValueStr(&ctx, "mVersion", "5.0");
     JsonEndCompactObject(&ctx);
 
     for (size_t index = 0; index < count; index++) {
@@ -343,38 +341,49 @@ void ExportIda(FILE *file, struct RTTI **types, size_t count) {
 
     for (size_t index = 0; index < count; index++) {
         struct RTTI *type = types[index];
-        fprintf(file, "\n\tset_name(0x%p, \"RTTI_%s\");\n", type, RTTI_Name(type));
+        fprintf(file, "\n\t// %s %s\n", RTTIKind_Name(type->kind), RTTI_Name(type));
+        fprintf(file, "\tset_name(0x%p, \"RTTI_%s\");\n", type, RTTI_Name(type));
         fprintf(file, "\tapply_type(0x%p, \"%s\");\n", type, RTTIKind_IDAName(type->kind));
 
         if (RTTI_AsCompound(type, &type_compound)) {
-            struct RTTIBase *bases = type_compound->bases;
+            struct RTTIBase *bases = type_compound->mBases;
             if (bases) {
-                uint8_t bases_count = type_compound->bases_count;
+                uint8_t bases_count = type_compound->mNumBases;
                 fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", bases, bases_count * sizeof(struct RTTIBase));
                 fprintf(file, "\tapply_type(0x%p, \"RTTIBase[%d]\");\n", bases, bases_count);
                 fprintf(file, "\tset_name(0x%p, \"%s::sBases\");\n", bases, RTTI_Name(type));
             }
-            struct RTTIAttr *attrs = type_compound->attrs;
+            struct RTTIAttr *attrs = type_compound->mAttrs;
             if (attrs) {
-                uint8_t attrs_count = type_compound->attrs_count;
+                uint8_t attrs_count = type_compound->mNumAttrs;
                 fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", attrs, attrs_count * sizeof(struct RTTIAttr));
                 fprintf(file, "\tset_name(0x%p, \"%s::sAttrs\");\n", attrs, RTTI_Name(type));
                 fprintf(file, "\tapply_type(0x%p, \"RTTIAttr[%d]\");\n", attrs, attrs_count);
             }
-            struct RTTIMessageHandler *messages = type_compound->message_handlers;
+            struct RTTIMessageHandler *messages = type_compound->mMessageHandlers;
             if (messages) {
-                uint8_t messages_count = type_compound->message_handlers_count;
+                uint8_t messages_count = type_compound->mNumMessageHandlers;
                 fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", messages, messages_count * sizeof(struct RTTIMessageHandler));
                 fprintf(file, "\tset_name(0x%p, \"%s::sMessageHandlers\");\n", messages, RTTI_Name(type));
                 fprintf(file, "\tapply_type(0x%p, \"RTTIMessageHandler[%d]\");\n", messages, messages_count);
 
                 for (uint8_t i = 0; i < messages_count; ++i) {
                     struct RTTIMessageHandler *message = &messages[i];
-                    if (strcmp(RTTI_Name(message->message), "MsgReadBinary") == 0) {
-                        fprintf(file, "\tset_name(0x%p, \"%s::OnReadBinary\");\n", message->handler, RTTI_Name(type));
-                        fprintf(file, "\tapply_type(0x%p, \"__int64 __fastcall f(void* this, MsgReadBinary* msg)\");\n", message->handler);
+                    if (strcmp(RTTI_Name(message->mMessage), "MsgReadBinary") == 0) {
+                        fprintf(file, "\tset_name(0x%p, \"%s::OnReadBinary\");\n", message->mHandler, RTTI_Name(type));
+                        fprintf(file, "\tapply_type(0x%p, \"__int64 __fastcall f(void* this, MsgReadBinary* msg)\");\n", message->mHandler);
                     }
                 }
+            }
+            struct RTTIMessageOrderEntry* message_order_entries = type_compound->mMessageOrderEntries;
+            if (message_order_entries) {
+                uint8_t entry_count = type_compound->mNumMessageOrderEntries;
+                fprintf(file, "\tdel_items(0x%p, DELIT_SIMPLE, %zu);\n", message_order_entries, entry_count * sizeof(struct RTTIMessageOrderEntry));
+                fprintf(file, "\tset_name(0x%p, \"%s::sInheritedMessageHandlers\");\n", message_order_entries, RTTI_Name(type));
+                fprintf(file, "\tapply_type(0x%p, \"RTTIInheritedMessageHandler[%d]\");\n", message_order_entries, entry_count);
+            }
+            if (type_compound->mGetExportedSymbols) {
+                fprintf(file, "\tset_name(0x%p, \"%s::GetExportedSymbols\");\n", type_compound->mGetExportedSymbols, RTTI_Name(type));
             }
         } else if (RTTI_AsEnum(type, &type_enum)) {
             if (type_enum->values) {
@@ -385,17 +394,17 @@ void ExportIda(FILE *file, struct RTTI **types, size_t count) {
             }
         } else if (RTTI_AsContainer(type, &type_container)) {
             const char *container_name;
-            if (strcmp(type_container->container_type->type_name, "Array") == 0) {
+            if (strcmp(type_container->mContainerType->mTypeName, "Array") == 0) {
                 // Arrays share the same info
-                container_name = type_container->container_type->type_name;
+                container_name = type_container->mContainerType->mTypeName;
             } else {
-                container_name = type_container->type_name;
+                container_name = type_container->mTypeName;
             }
-            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_container->container_type, container_name);
-            fprintf(file, "\tapply_type(0x%p, \"RTTIContainerData\");\n", type_container->container_type);
+            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_container->mContainerType, container_name);
+            fprintf(file, "\tapply_type(0x%p, \"RTTIContainerData\");\n", type_container->mContainerType);
         } else if (RTTI_AsPointer(type, &type_pointer)) {
-            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_pointer->pointer_type, type_pointer->pointer_type->type_name);
-            fprintf(file, "\tapply_type(0x%p, \"RTTIPointerData\");\n", type_pointer->pointer_type);
+            fprintf(file, "\tset_name(0x%p, \"%s::sInfo\");\n", type_pointer->mPointerType, type_pointer->mPointerType->mTypeName);
+            fprintf(file, "\tapply_type(0x%p, \"RTTIPointerData\");\n", type_pointer->mPointerType);
         }
     }
 

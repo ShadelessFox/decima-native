@@ -1,5 +1,3 @@
-#define RTTI_STANDALONE
-
 #include "rtti.h"
 
 const char *RTTIKind_Name(enum RTTIKind kind) {
@@ -26,15 +24,15 @@ const char *RTTIKind_Name(enum RTTIKind kind) {
 
 const char *RTTI_Name(struct RTTI *rtti) {
     if (rtti->kind == RTTIKind_Compound)
-        return ((struct RTTICompound *) rtti)->type_name;
+        return ((struct RTTICompound *) rtti)->mTypeName;
     else if (rtti->kind == RTTIKind_Enum || rtti->kind == RTTIKind_EnumFlags)
         return ((struct RTTIEnum *) rtti)->type_name;
     else if (rtti->kind == RTTIKind_Atom)
-        return ((struct RTTIAtom *) rtti)->type_name;
+        return ((struct RTTIAtom *) rtti)->mTypeName;
     else if (rtti->kind == RTTIKind_Container)
-        return ((struct RTTIContainer *) rtti)->type_name;
+        return ((struct RTTIContainer *) rtti)->mTypeName;
     else if (rtti->kind == RTTIKind_Pointer)
-        return ((struct RTTIPointer *) rtti)->type_name;
+        return ((struct RTTIPointer *) rtti)->mTypeName;
     assert(0 && "Unexpected RTTIKind");
     return "";
 }
@@ -44,7 +42,7 @@ static char *RTTI_DisplayNameInternal(struct RTTI *rtti, char *ptr) {
     const char *name;
 
     if (RTTI_AsContainer(rtti, &container) || RTTI_AsPointer(rtti, (struct RTTIPointer **) &container)) {
-        name = container->container_type->type_name;
+        name = container->mContainerType->mTypeName;
     } else {
         name = RTTI_Name(rtti);
     }
@@ -55,7 +53,7 @@ static char *RTTI_DisplayNameInternal(struct RTTI *rtti, char *ptr) {
 
     if (container) {
         *ptr++ = '<';
-        ptr = RTTI_DisplayNameInternal(container->item_type, ptr);
+        ptr = RTTI_DisplayNameInternal(container->mItemType, ptr);
         *ptr++ = '>';
     }
 

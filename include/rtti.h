@@ -9,8 +9,6 @@
 
 #endif
 
-#include "rtti_types.h"
-
 #ifdef RTTI_STANDALONE
 enum RTTIKind {
 #else
@@ -39,51 +37,57 @@ struct RTTI {
 #pragma pack(pop)
 
 struct RTTIBase {
-    struct RTTI *type;
-    uint32_t offset;
+    struct RTTI *mType;
+    uint32_t mOffset;
 };
 
 struct RTTIAttr {
     struct RTTI *type;
-    uint16_t offset;
-    uint16_t flags;
-    const char *name;
-    const void *property_get_fn;
-    const void *property_set_fn;
-    const char *min_value;
-    const char *max_value;
+    uint16_t mOffset;
+    uint16_t mFlags;
+    const char *mName;
+    const void *mGetter;
+    const void *mSetter;
+    const char *mMinValue;
+    const char *mMaxValue;
 };
 
 struct RTTIMessageHandler {
-    struct RTTI *message;
-    void *handler;
+    struct RTTI *mMessage;
+    void *mHandler;
+};
+
+struct RTTIMessageOrderEntry {
+    uint32_t mBefore;
+    struct RTTI *mMessage;
+    struct RTTI *mCompound;
 };
 
 struct RTTICompound {
     struct RTTI base;
-    uint8_t bases_count;
-    uint8_t attrs_count;
-    uint8_t message_handlers_count;
-    uint8_t unk_08[2];
-    uint32_t version;
-    uint32_t size;
-    uint16_t alignment;
-    uint16_t flags;
-
-    void (*mConstructor)(struct RTTICompound *, struct RTTIObject *);
-    void (*mDestructor)(struct RTTICompound *, struct RTTIObject *);
-    _Bool (*mFromString)(struct RTTIObject *, STRING_DATA);
-    _Bool (*mFromStringSlice)(struct RTTIObject *, struct StringSlice *);
-    _Bool (*mToString)(struct RTTIObject *, STRING_DATA);
-
-    STRING_DATA type_name;
+    uint8_t mNumBases;
+    uint8_t mNumAttrs;
+    uint8_t mNumMessageHandlers;
+    uint8_t mNumMessageOrderEntries;
+    uint8_t unk_09;
+    uint32_t mVersion;
+    uint32_t mSize;
+    uint16_t mAlignment;
+    uint16_t mFlags;
+    void *mConstructor;
+    void *mDestructor;
+    void *mFromString;
+    void *mFromStringSlice;
+    void *mToString;
+    const char *mTypeName;
     struct RTTI *previous_type;
     struct RTTI *next_type;
-    struct RTTIBase *bases;
-    struct RTTIAttr *attrs;
-    struct RTTIMessageHandler *message_handlers;
-    uintptr_t unk_70;
-    struct RTTICompound *(*mGetExportedSymbols)();
+    struct RTTIBase *mBases;
+    struct RTTIAttr *mAttrs;
+    struct RTTIMessageHandler *mMessageHandlers;
+    struct RTTIMessageOrderEntry *mMessageOrderEntries;
+    void *mGetExportedSymbols;
+
     struct RTTI *representation_type;
     uintptr_t unk_88;
     uintptr_t unk_90;
@@ -94,9 +98,9 @@ struct RTTICompound {
 };
 
 struct RTTIContainerData {
-    STRING_DATA type_name;
-    uint16_t size;
-    uint8_t alignment;
+    const char *mTypeName;
+    uint16_t mSize;
+    uint8_t mAlignment;
     uint8_t unk_0B[5];
     void *constructor_fn;
     void *destructor_fn;
@@ -116,15 +120,15 @@ struct RTTIContainerData {
 struct RTTIContainer {
     struct RTTI base;
     uint16_t unk_06;
-    struct RTTI *item_type;
-    struct RTTIContainerData *container_type;
-    STRING_DATA type_name;
+    struct RTTI *mItemType;
+    struct RTTIContainerData *mContainerType;
+    const char *mTypeName;
 };
 
 struct RTTIPointerData {
-    STRING_DATA type_name;
-    uint32_t size;
-    uint8_t alignment;
+    const char *mTypeName;
+    uint32_t mSize;
+    uint8_t mAlignment;
     uint8_t unk_0D[3];
     void *constructor_fn;
     void *destructor_fn;
@@ -135,16 +139,16 @@ struct RTTIPointerData {
 
 struct RTTIPointer {
     struct RTTI base;
-    uint16_t unk_06;
-    struct RTTI *item_type;
-    struct RTTIPointerData *pointer_type;
-    STRING_DATA type_name;
+    uint8_t unk_06[2];
+    struct RTTI *mItemType;
+    struct RTTIPointerData *mPointerType;
+    const char *mTypeName;
 };
 
 struct RTTIValue {
-    uint64_t value;
-    const char *name;
-    const char *aliases[4];
+    uint64_t mValue;
+    const char *mName;
+    const char *mAliases[4];
 };
 
 struct RTTIEnum {
@@ -153,19 +157,19 @@ struct RTTIEnum {
     uint8_t alignment;
     uint16_t num_values;
     uint8_t unk_0A[6];
-    STRING_DATA type_name;
+    const char *type_name;
     struct RTTIValue *values;
     struct RTTI *representation_type;
 };
 
 struct RTTIAtom {
     struct RTTI base;
-    uint16_t size;
-    uint8_t alignment;
-    uint8_t simple; ///< A simple atom is one with a fixed memory layout, such as int32, bool, etc.
+    uint16_t mSize;
+    uint8_t mAlignment;
+    uint8_t mSimple; ///< A mSimple atom is one with a fixed memory layout, such as int32, bool, etc.
     uint8_t unk_08[6];
-    STRING_DATA type_name;
-    struct RTTI *base_type;
+    const char *mTypeName;
+    struct RTTI *mBaseType;
     void *from_string_fn;
     void *to_string_fn;
     void *unk_30;

@@ -1,5 +1,5 @@
-#ifndef DECIMA_NATIVE_MEMORY_H
-#define DECIMA_NATIVE_MEMORY_H
+#ifndef DECIMA_NATIVE_SCAN_H
+#define DECIMA_NATIVE_SCAN_H
 
 struct Section {
     void *start;
@@ -10,4 +10,4 @@ _Bool FindSection(void* module, const char *name, struct Section *section);
 
 _Bool FindPattern(void *start, const void *end, const char *pattern, void **position);
 
-#endif //DECIMA_NATIVE_MEMORY_H
+#endif //DECIMA_NATIVE_SCAN_H

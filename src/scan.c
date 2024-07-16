@@ -1,4 +1,4 @@
-#include "memory.h"
+#include "scan.h"
 
 #include <stdint.h>
 #include <stdlib.h>
