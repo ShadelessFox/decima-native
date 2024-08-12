@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(decima_native)
 
 #set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(decima_native SHARED
@@ -17,15 +17,11 @@ add_library(decima_native SHARED
         libs/detours/src/disasm.cpp
         libs/detours/src/modules.cpp
 
-        libs/hashmap/hashmap.c
-
-#        src/rtti.c
-        src/exports.c
-#        src/json.c
-        src/rtti.cpp
-        src/scan.cpp
-#        src/main.c
-        src/main.cpp
+        source/exports.c
+        source/Offsets.cpp
+        source/XUtil.cpp
+        source/RTTI.cpp
+        source/main.cpp
 )
 
 
