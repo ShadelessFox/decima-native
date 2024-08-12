@@ -4,7 +4,7 @@
 
 #include "rtti.h"
 #include "json.h"
-#include "scan.h"
+#include "scan.hpp"
 
 #include <Windows.h>
 #include <stdio.h>
