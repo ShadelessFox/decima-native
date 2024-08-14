@@ -3,9 +3,13 @@
 #include <cstdint>
 #include <span>
 #include <system_error>
+#include <format>
 
-#include "PCore/String.h"
-#include "Core/RTTIObject.h"
+#include "../PCore/String.h"
+
+class RTTIObject;
+
+class RTTIRefObject;
 
 #define ASSERT_SIZE(_Type, _Size) static_assert(sizeof(_Type) == (_Size), "sizeof(" # _Type ") == " # _Size)
 
@@ -39,24 +43,25 @@ struct RTTI {
 
     [[nodiscard]] String ToString(const void *value) const;
 
-    [[nodiscard]] const RTTIAtom* AsAtom() const {
-        return mKind == RTTIKind::Atom ? reinterpret_cast<const RTTIAtom*>(this) : nullptr;
+    [[nodiscard]] const RTTIAtom *AsAtom() const {
+        return mKind == RTTIKind::Atom ? reinterpret_cast<const RTTIAtom *>(this) : nullptr;
     }
 
-    [[nodiscard]] const RTTIClass* AsClass() const {
-        return mKind == RTTIKind::Compound ? reinterpret_cast<const RTTIClass*>(this) : nullptr;
+    [[nodiscard]] const RTTIClass *AsClass() const {
+        return mKind == RTTIKind::Compound ? reinterpret_cast<const RTTIClass *>(this) : nullptr;
     }
 
-    [[nodiscard]] const RTTIEnum* AsEnum() const {
-        return mKind == RTTIKind::Enum || mKind == RTTIKind::EnumFlags ? reinterpret_cast<const RTTIEnum*>(this) : nullptr;
+    [[nodiscard]] const RTTIEnum *AsEnum() const {
+        return mKind == RTTIKind::Enum || mKind == RTTIKind::EnumFlags ? reinterpret_cast<const RTTIEnum *>(this)
+                                                                       : nullptr;
     }
 
-    [[nodiscard]] const RTTIPointer* AsPointer() const {
-        return mKind == RTTIKind::Pointer ? reinterpret_cast<const RTTIPointer*>(this) : nullptr;
+    [[nodiscard]] const RTTIPointer *AsPointer() const {
+        return mKind == RTTIKind::Pointer ? reinterpret_cast<const RTTIPointer *>(this) : nullptr;
     }
 
-    [[nodiscard]] const RTTIContainer* AsContainer() const {
-        return mKind == RTTIKind::Container ? reinterpret_cast<const RTTIContainer*>(this) : nullptr;
+    [[nodiscard]] const RTTIContainer *AsContainer() const {
+        return mKind == RTTIKind::Container ? reinterpret_cast<const RTTIContainer *>(this) : nullptr;
     }
 };
 
@@ -105,7 +110,7 @@ struct RTTIEnum : RTTI {
 ASSERT_SIZE(RTTIEnum, 0x28);
 
 struct RTTIBase {
-    const RTTI *mType;
+    const RTTIClass *mType;
     uint64_t mOffset;
 };
 
@@ -123,41 +128,6 @@ struct RTTIAttr {
     pSetterFunction mSetter;
     const char *mMinValue;
     const char *mMaxValue;
-
-    template<typename T>
-    bool Get(const RTTIObject &inObject, T &outValue) const {
-        if (mType == nullptr)
-            return false;
-        auto offset = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(&inObject) + mOffset);
-        if (mGetter != nullptr) {
-            mGetter(&inObject, &outValue);
-        } else {
-            outValue = reinterpret_cast<std::add_const_t<T> *>(offset);
-        }
-        return true;
-    }
-
-    template<typename T>
-    T* GetRef(const RTTIObject &inObject) const {
-        if (mType == nullptr)
-            throw std::runtime_error("Can't obtain a reference to a category marker");
-        if (mGetter != nullptr)
-            throw std::runtime_error("Can't obtain a reference to a property");
-        auto offset = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(&inObject) + mOffset);
-        return reinterpret_cast<T *>(offset);
-    }
-
-    template<typename T>
-    void Set(RTTIObject &inObject, const T &inValue) {
-        if (mType == nullptr)
-            return;
-        auto offset = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(&inObject) + mOffset);
-        if (mSetter != nullptr) {
-            mSetter(&inObject, inValue);
-        } else {
-            *reinterpret_cast<T>(offset) = inValue;
-        }
-    }
 };
 
 ASSERT_SIZE(RTTIAttr, 0x38);
@@ -208,18 +178,55 @@ struct RTTIClass : RTTI {
     [[nodiscard]] auto GetBases() const { return std::span{mBases, mNumBases}; }
 
     [[nodiscard]] auto GetAttrs() const { return std::span{mAttrs, mNumAttrs}; }
+
+    template<typename T>
+    T &GetAttrRefUnsafe(RTTIObject &inObject, std::string_view inName) const {
+        void *pointer = nullptr;
+        ForEachAttribute([&](const RTTIAttr &inAttr, size_t inOffset) {
+            if (inAttr.mName != inName)
+                return false;
+            if (inAttr.mGetter != nullptr)
+                throw std::runtime_error("Can't obtain a reference to a property");
+            pointer = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(&inObject) + inOffset);
+            return true;
+        });
+        if (pointer == nullptr)
+            throw std::runtime_error("Can't find attribute");
+        return *reinterpret_cast<T *>(pointer);
+    }
+
+    template<typename Func>
+    requires(std::is_invocable_r_v<bool, Func, const RTTIAttr & /* inAttr */, size_t /* inOffset */>)
+    bool ForEachAttribute(const Func &inCallback, size_t inOffset = 0) const {
+        for (const auto &base: GetBases()) {
+            if (base.mType->ForEachAttribute(inCallback, inOffset + base.mOffset))
+                return true;
+        }
+
+        for (const auto &attr: GetAttrs()) {
+            if (attr.mType == nullptr)
+                continue;
+            if (inCallback(attr, inOffset + attr.mOffset))
+                return true;
+        }
+
+        return false;
+    }
 };
 
 ASSERT_SIZE(RTTIClass, 0x98);
 
 struct RTTIPointerInfo {
+    using pGetFunction = const RTTIRefObject *(*)(const RTTIPointer &inType, const void *inObject);
+    using pSetFunction = void (*)(const RTTIPointer &inType, void *inObject, const RTTIRefObject *inValue);
+
     const char *mName;
     uint32_t mSize;
     uint32_t mAlignment;
     const void *mConstructor;
     const void *mDestructor;
-    const void *mGetter;
-    const void *mSetter;
+    pGetFunction mGetter;
+    pSetFunction mSetter;
     const void *mCopier;
 };
 
@@ -228,11 +235,22 @@ ASSERT_SIZE(RTTIPointerInfo, 0x38);
 struct RTTIPointer : RTTI {
     const RTTI *mItemType;
     const RTTIPointerInfo *mPointerType;
+
+    [[nodiscard]] const RTTIRefObject *Get(const void *inObject) const {
+        return mPointerType->mGetter(*this, inObject);
+    }
+
+    void Set(void *inObject, const RTTIRefObject *inValue) const {
+        mPointerType->mSetter(*this, inObject, inValue);
+    }
 };
 
 ASSERT_SIZE(RTTIPointer, 0x18);
 
 struct RTTIContainerInfo {
+    using pGetSizeFunction = size_t (*)(const RTTIContainer &inType, const void *inObject);
+    using pGetItemFunction = void *(*)(const RTTIContainer &inType, const void *inObject, size_t inIndex);
+
     const char *mName;
     uint16_t mSize;
     uint8_t mAlignment;
@@ -241,8 +259,8 @@ struct RTTIContainerInfo {
     const void *mResize;
     const void *mInsert;
     const void *mRemove;
-    const void *mGetSize;
-    const void *mGetItem;
+    pGetSizeFunction mGetSize;
+    pGetItemFunction mGetItem;
     const void *mUnk48;
     const void *mUnk50;
     const void *mUnk58;
@@ -265,6 +283,14 @@ ASSERT_SIZE(RTTIContainerInfo, 0xC0);
 struct RTTIContainer : RTTI {
     const RTTI *mItemType;
     const RTTIContainerInfo *mContainerInfo;
+
+    [[nodiscard]] size_t GetSize(const void *inObject) const {
+        return mContainerInfo->mGetSize(*this, inObject);
+    }
+
+    [[nodiscard]] void *GetItem(const void *inObject, size_t inIndex) const {
+        return mContainerInfo->mGetItem(*this, inObject, inIndex);
+    }
 };
 
 ASSERT_SIZE(RTTIContainer, 0x18);

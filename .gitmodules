@@ -1,6 +1,3 @@
 [submodule "libs/detours"]
 	path = libs/detours
 	url = https://github.com/microsoft/Detours
-[submodule "libs/hashmap"]
-	path = libs/hashmap
-	url = https://github.com/tidwall/hashmap.c

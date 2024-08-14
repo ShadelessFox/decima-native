@@ -4,39 +4,19 @@
 
 #include <Windows.h>
 #include <detours.h>
-#include <cstdio>
 
-#include "RTTI.h"
 #include "Offsets.h"
 
 #include "PCore/Array.h"
 #include "PCore/Ref.h"
 #include "PCore/String.h"
-
-
-class RTTI;
-
-struct GGUUID {
-    uint8_t mData[16];
-};
-
-class RTTIRefObject : public RTTIObject {
-public:
-    GGUUID mObjectUUID;
-    uint32_t mRefCount;
-};
-
-class LocalizedTextResource : public RTTIRefObject /* Resource */ {
-public:
-    const char *mText{nullptr};
-    uint16_t mLength{0};
-};
+#include "Core/RTTIRefObject.h"
 
 class Listener {
 public:
-    virtual void OnCoreLoad(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) = 0;
+    [[maybe_unused]] virtual void OnCoreLoad(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) = 0;
 
-    virtual void OnCoreUnload(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) = 0;
+    [[maybe_unused]] virtual void OnCoreUnload(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) = 0;
 };
 
 class LoggingListener : public Listener {
@@ -46,35 +26,21 @@ public:
 
         for (size_t i = 0; i < inObjects.size(); i++) {
             auto &object = const_cast<Ref<RTTIRefObject> &>(inObjects[i]);
-            auto &type = reinterpret_cast<const RTTIClass &>(*object->GetRTTI());
 
-            printf(" - %s:\n", type.GetName().c_str());
+            // Fix menu buttons not fitting on screen
+            // interface/menu/ds/title/ui_title_menu_view.core
+            if (object->mObjectUUID == "27235008-8628-8547-8e56-4f0928fe20b8") {
+                object->Get<int>("Y") -= 50;
+                object->Get<int>("Height") += 50;
+            }
 
-            std::string category;
-            for (auto &attr: type.GetAttrs()) {
-                if (attr.mType == nullptr) {
-                    category = attr.mName;
-                    continue;
-                }
-                printf("   - ");
-                if (!category.empty())
-                    printf("%s.", category.c_str());
-                printf("%s (%s): ", attr.mName, attr.mType->GetName().c_str());
-
-                if (attr.mGetter != nullptr) {
-                    printf("<property>\n");
-                } else {
-                    bool canConvertToString = true;
-                    if (auto c = attr.mType->AsContainer(); c != nullptr) {
-                        canConvertToString = c->mContainerInfo->mToString != nullptr;
-                    }
-                    if (canConvertToString) {
-                        auto value = attr.GetRef<void>(*object);
-                        printf("%s\n", attr.mType->ToString(value).c_str());
-                    } else {
-                        printf("<non convertible to string>\n");
-                    }
-                }
+            // Speed up logo animations
+            // interface/menu/ds/splash_screen/ui_splash_screen_menu_view.core
+            if (object->mObjectUUID == "4f85c849-3cfe-af4a-ba4a-731917834785") {
+                object->Get<float>("SIELogoShowTimer") = 0.01f;
+                object->Get<float>("KJPLogoShowTimer") = 0.01f;
+                object->Get<float>("DecimaLogoShowTimer") = 0.01f;
+                object->Get<float>("_505GamesLogoShowTimer") = 0.01f;
             }
         }
     }
@@ -98,6 +64,9 @@ static void *CoreFileManager_Constructor_Hook(void *inThis, void *inSStreamingMa
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID *reserved) {
+    (void) instance;
+    (void) reserved;
+
     if (reason == DLL_PROCESS_ATTACH) {
         AllocConsole();
         AttachConsole(ATTACH_PARENT_PROCESS);
@@ -106,6 +75,7 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID *reserved) {
         // @formatter:off
         Offsets::MapSignature("CoreFileManager::Constructor", "40 53 48 83 EC 20 48 8D 05 ? ? ? ? 48 89 51 08 48 89 01 48 8B D9 48 83 C1 10 FF 15 ? ? ? ? 48 8D 4B 18 FF 15 ? ? ? ? 33 C0");
         Offsets::MapSignature("CoreFileManager::RegisterEventListener", "48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 20 48 8D 59 18 48 8B F9 48 8B CB 48 8B F2 FF 15 ? ? ? ? 84 C0 75 09 48 8B CB FF 15 ? ? ? ? 48 8D 4F 28 48 8B D6 E8");
+        Offsets::MapSignature("RTTIRefObject::DecrementRef", "40 53 48 83 EC 20 48 8B D9 B8 ? ? ? ? F0 0F C1 41 ? 25 ? ? ? ? 83 F8 01 75 34 8B 41");
         Offsets::MapSignature("String::FromCString", "40 53 48 83 EC 20 48 8B D9 48 C7 01 00 00 00 00 49 C7 C0 FF FF FF FF");
         Offsets::MapSignature("String::FromString", "48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 20 48 8B 39 48 8B F2 48 8B D9 48 3B 3A 74 54 48 89 6C 24");
         Offsets::MapSignature("String::~String", "40 53 48 83 EC 20 48 8B 19 48 8D 05 ? ? ? ? 48 83 EB 10 48 3B D8 74 27 B8 ? ? ? ? F0 0F C1 03 0F BA F0 1F 83 F8 01 75 15 48 8B");

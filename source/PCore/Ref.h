@@ -3,30 +3,52 @@
 template<typename T>
 class Ref {
 public:
-    [[nodiscard]] T *get() const {
-        return m_Ptr;
+    Ref() = default;
+
+    Ref(const Ref &inRef) {
+        Assign(inRef.m_Ptr);
+    }
+
+    explicit Ref(T *inPtr) {
+        Assign(inPtr);
+    }
+
+    Ref<T> &operator=(const Ref<T> &inRef) {
+        if (this == &inRef)
+            return *this;
+        Assign(inRef.m_Ptr);
+        return *this;
     }
 
     explicit operator bool() const {
-        return get() != nullptr;
+        return m_Ptr != nullptr;
     }
 
-    operator const T&() const {
-        return get();
+    T *operator->() {
+        return m_Ptr;
     }
 
-    T *operator->() const {
-        return get();
-    }
-
-    const T &operator*() const {
-        return *get();
+    const T *operator->() const {
+        return m_Ptr;
     }
 
     T &operator*() {
-        return *get();
+        return *m_Ptr;
+    }
+
+    const T &operator*() const {
+        return *m_Ptr;
     }
 
 private:
-    T *m_Ptr;
+    void Assign(T *inPtr) {
+        auto tmp = m_Ptr;
+        if (inPtr)
+            inPtr->IncrementRef();
+        m_Ptr = inPtr;
+        if (tmp)
+            tmp->DecrementRef();
+    }
+
+    T *m_Ptr{nullptr};
 };

@@ -1,7 +1,6 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 project(decima_native)
 
-#set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -17,17 +16,16 @@ add_library(decima_native SHARED
         libs/detours/src/disasm.cpp
         libs/detours/src/modules.cpp
 
-        source/exports.c
+        source/Core/RTTI.cpp
         source/Offsets.cpp
         source/XUtil.cpp
-        source/RTTI.cpp
+        source/exports.c
         source/main.cpp
 )
 
-
 set_property(TARGET decima_native PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DRTTI_STANDALONE)
-target_include_directories(decima_native PRIVATE include libs/detours/src libs/hashmap)
+target_include_directories(decima_native PRIVATE source libs/detours/src libs/hashmap)
 
 add_custom_command(TARGET decima_native POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
