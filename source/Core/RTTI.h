@@ -13,9 +13,6 @@ class RTTIRefObject;
 
 #define ASSERT_SIZE(_Type, _Size) static_assert(sizeof(_Type) == (_Size), "sizeof(" # _Type ") == " # _Size)
 
-using pFromStringFunction = bool (*)(const String &inString, void *outData);
-using pToStringFunction = bool (*)(const void *inData, String &outString);
-
 enum class RTTIKind : std::uint8_t {
     Atom = 0,
     Pointer = 1,
@@ -42,6 +39,8 @@ struct RTTI {
     [[nodiscard]] String GetName() const;
 
     [[nodiscard]] String ToString(const void *value) const;
+
+    bool FromString(void *inObject, const String &inString) const;
 
     [[nodiscard]] const RTTIAtom *AsAtom() const {
         return mKind == RTTIKind::Atom ? reinterpret_cast<const RTTIAtom *>(this) : nullptr;
@@ -70,6 +69,9 @@ struct RTTI {
 ASSERT_SIZE(RTTI, 0x6);
 
 struct RTTIAtom : RTTI {
+    using pFromStringFunction = bool (*)(const String &inString, void *inObject);
+    using pToStringFunction = bool (*)(const void *inObject, String &outString);
+
     uint16_t mSize;
     uint8_t mAlignment;
     uint8_t mSimple;
@@ -148,6 +150,9 @@ struct RTTIMessageOrderEntry {
 ASSERT_SIZE(RTTIMessageOrderEntry, 0x18);
 
 struct RTTIClass : RTTI {
+    using pFromStringFunction = bool (*)(const String &inString, RTTIObject *inObject);
+    using pToStringFunction = bool (*)(const RTTIObject *inObject, String &outString);
+
     uint8_t mNumBases;
     uint8_t mNumAttrs;
     uint8_t mNumFunctions;
@@ -180,18 +185,20 @@ struct RTTIClass : RTTI {
     [[nodiscard]] auto GetAttrs() const { return std::span{mAttrs, mNumAttrs}; }
 
     template<typename T>
-    T &GetAttrRefUnsafe(RTTIObject &inObject, std::string_view inName) const {
+    T &GetAttrRefUnsafe(RTTIObject &inObject, std::string_view inName, const RTTIAttr** outAttr = nullptr) const {
         void *pointer = nullptr;
         ForEachAttribute([&](const RTTIAttr &inAttr, size_t inOffset) {
             if (inAttr.mName != inName)
                 return false;
             if (inAttr.mGetter != nullptr)
-                throw std::runtime_error("Can't obtain a reference to a property");
+                throw std::runtime_error(std::format("Can't obtain a reference to a property {}", inName));
+            if (outAttr != nullptr)
+                *outAttr = &inAttr;
             pointer = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(&inObject) + inOffset);
             return true;
         });
         if (pointer == nullptr)
-            throw std::runtime_error("Can't find attribute");
+            throw std::runtime_error(std::format("Can't find attribute {} in {}", inName, GetName().c_str()));
         return *reinterpret_cast<T *>(pointer);
     }
 
@@ -251,6 +258,9 @@ struct RTTIContainerInfo {
     using pGetSizeFunction = size_t (*)(const RTTIContainer &inType, const void *inObject);
     using pGetItemFunction = void *(*)(const RTTIContainer &inType, const void *inObject, size_t inIndex);
 
+    using pFromStringFunction = bool (*)(const String &inString, const RTTIContainer& inType, void *inObject);
+    using pToStringFunction = bool (*)(const void *inObject, const RTTIContainer& inType, String &outString);
+
     const char *mName;
     uint16_t mSize;
     uint8_t mAlignment;
@@ -271,8 +281,8 @@ struct RTTIContainerInfo {
     const void *mUnk80;
     const void *mUnk88;
     const void *mUnk90;
-    const void *mToString;
-    const void *mFromString;
+    pToStringFunction mToString;
+    pFromStringFunction mFromString;
     const void *mUnkA8;
     const void *mUnkB0;
     const void *mUnkB8;

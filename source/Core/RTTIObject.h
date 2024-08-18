@@ -18,4 +18,9 @@ public:
         return GetRTTI()->GetAttrRefUnsafe<T>(*this, inName);
     }
 
+    bool Set(std::string_view inName, const String& inValue) {
+        const RTTIAttr* attr;
+        auto& object = GetRTTI()->GetAttrRefUnsafe<uintptr_t>(*this, inName, &attr);
+        return attr->mType->FromString(reinterpret_cast<void *>(&object), inValue);
+    }
 };

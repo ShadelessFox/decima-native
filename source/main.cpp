@@ -14,19 +14,17 @@
 
 class Listener {
 public:
-    [[maybe_unused]] virtual void OnCoreLoad(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) = 0;
+    [[maybe_unused]] virtual void OnCoreLoad(const String &inPath, Array<Ref<RTTIRefObject>> &inObjects) = 0;
 
-    [[maybe_unused]] virtual void OnCoreUnload(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) = 0;
+    [[maybe_unused]] virtual void OnCoreUnload(const String &inPath, Array<Ref<RTTIRefObject>> &inObjects) = 0;
 };
 
 class LoggingListener : public Listener {
 public:
-    void OnCoreLoad(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) override {
-        printf("Loaded file '%s' (%zu objects)\n", inPath.c_str(), inObjects.size());
+    void OnCoreLoad(const String &inPath, Array<Ref<RTTIRefObject>> &inObjects) override {
+        printf("Loaded file '%s' (%zu object%s)\n", inPath.c_str(), inObjects.size(), inObjects.size() == 1 ? "" : "s");
 
-        for (size_t i = 0; i < inObjects.size(); i++) {
-            auto &object = const_cast<Ref<RTTIRefObject> &>(inObjects[i]);
-
+        for (auto &object: inObjects) {
             // Fix menu buttons not fitting on screen
             // interface/menu/ds/title/ui_title_menu_view.core
             if (object->mObjectUUID == "27235008-8628-8547-8e56-4f0928fe20b8") {
@@ -34,19 +32,18 @@ public:
                 object->Get<int>("Height") += 50;
             }
 
-            // Speed up logo animations
+            // Skip intro logos
             // interface/menu/ds/splash_screen/ui_splash_screen_menu_view.core
-            if (object->mObjectUUID == "4f85c849-3cfe-af4a-ba4a-731917834785") {
-                object->Get<float>("SIELogoShowTimer") = 0.01f;
-                object->Get<float>("KJPLogoShowTimer") = 0.01f;
-                object->Get<float>("DecimaLogoShowTimer") = 0.01f;
-                object->Get<float>("_505GamesLogoShowTimer") = 0.01f;
+            if (object->mObjectUUID == "49954e51-af5f-4e42-a909-ee290c6d96ad") {
+                object->Set("Trigger", "FocusReceived");
+                object->Get<Ref<RTTIRefObject>>("OnAnimationStart") = object->Get<Ref<RTTIRefObject>>("OnAnimationEnd");
+                object->Get<Ref<RTTIRefObject>>("OnAnimationStart")->Set("FunctionName", "OnFinishDecimaLogo");
             }
         }
     }
 
-    void OnCoreUnload(const String &inPath, const Array<Ref<RTTIRefObject>> &inObjects) override {
-        printf("Unloaded file '%s' (%zu objects)\n", inPath.c_str(), inObjects.size());
+    void OnCoreUnload(const String &inPath, Array<Ref<RTTIRefObject>> &inObjects) override {
+        printf("Unloaded file '%s' (%zu object%s)\n", inPath.c_str(), inObjects.size(), inObjects.size() == 1 ? "" : "s");
     }
 };
 

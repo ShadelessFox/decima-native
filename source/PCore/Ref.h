@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Core/RTTIRefObject.h"
+
 template<typename T>
+requires (std::is_base_of_v<RTTIRefObject, T>)
 class Ref {
 public:
     Ref() = default;
@@ -38,6 +41,14 @@ public:
 
     const T &operator*() const {
         return *m_Ptr;
+    }
+
+    const T* Get() const {
+        return m_Ptr;
+    }
+
+    T* Get() {
+        return m_Ptr;
     }
 
 private:

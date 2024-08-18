@@ -13,10 +13,8 @@ public:
     }
 
     void DecrementRef() {
-        Offsets::CallID<"RTTIRefObject::DecrementRef", void(*)(RTTIRefObject*)>(this);
+        Offsets::CallID<"RTTIRefObject::DecrementRef", void (*)(RTTIRefObject*)>(this);
     }
 private:
     uint32_t mRefCount;
 };
-
-using pRTTIRefObject = Ref<RTTIRefObject>;
