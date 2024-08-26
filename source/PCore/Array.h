@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <functional>
 #include <iterator>
@@ -15,10 +17,11 @@ public:
 
     ArrayIterator() = delete;
 
-    explicit ArrayIterator(PtrType inPtr) : mPtr(inPtr) {}
+    explicit ArrayIterator(PtrType inPtr) : mPtr(inPtr) {
+    }
 
     ArrayIterator &operator++() {
-        mPtr++;
+        ++mPtr;
         return *this;
     }
 
@@ -31,11 +34,11 @@ public:
     const_pointer operator->() const { return mPtr; }
 
     template<typename = void>
-    requires(!Const)
+        requires(!Const)
     reference operator*() { return *mPtr; }
 
     template<typename = void>
-    requires(!Const)
+        requires(!Const)
     pointer operator->() { return mPtr; }
 
 private:
@@ -53,26 +56,32 @@ public:
     using iterator = ArrayIterator<T, false>;
     using const_iterator = ArrayIterator<T, true>;
 
-    T &operator[](size_t index) { return m_Entries[index]; }
+    Array() = delete;
 
-    const T &operator[](size_t index) const { return m_Entries[index]; }
+    Array(const Array &) = delete;
 
-    iterator begin() { return iterator(&m_Entries[0]); }
+    Array(Array &&) = default;
 
-    iterator end() { return iterator(&m_Entries[m_Count]); }
+    T &operator[](size_t index) { return mEntries[index]; }
 
-    const_iterator begin() const { return const_iterator(&m_Entries[0]); }
+    const T &operator[](size_t index) const { return mEntries[index]; }
 
-    const_iterator end() const { return const_iterator(&m_Entries[m_Count]); }
+    iterator begin() { return iterator(&mEntries[0]); }
 
-    [[nodiscard]] std::size_t size() const { return m_Count; }
+    iterator end() { return iterator(&mEntries[mCount]); }
 
-    [[nodiscard]] std::size_t capacity() const { return m_Capacity; }
+    const_iterator begin() const { return const_iterator(&mEntries[0]); }
 
-    [[nodiscard]] bool empty() const { return m_Count == 0; }
+    const_iterator end() const { return const_iterator(&mEntries[mCount]); }
+
+    [[nodiscard]] std::size_t size() const { return mCount; }
+
+    [[nodiscard]] std::size_t capacity() const { return mCapacity; }
+
+    [[nodiscard]] bool empty() const { return mCount == 0; }
 
 private:
-    uint32_t m_Count;
-    uint32_t m_Capacity;
-    T *m_Entries;
+    uint32_t mCount;
+    uint32_t mCapacity;
+    T *mEntries;
 };

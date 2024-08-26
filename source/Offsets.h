@@ -52,12 +52,12 @@ namespace Offsets {
 
     template<typename T>
     auto Resolve(uintptr_t Offset) {
-        return (T) (GetCodeSection().first + Offset);
+        return (T) (GetModule().first + Offset);
     }
 
     template<LiteralHash Hash, typename T = uintptr_t>
     auto ResolveID() {
-        return (T) (GetCodeSection().first + FindOffset(Hash.Value));
+        return (T) (GetModule().first + FindOffset(Hash.Value));
     }
 
     template<uintptr_t Offset, typename T, typename... TArgs>
@@ -65,7 +65,7 @@ namespace Offsets {
         static std::atomic<uintptr_t> address;
 
         if (address == 0)
-            address.store(GetCodeSection().first + Offset);
+            address.store(GetModule().first + Offset);
 
         return (reinterpret_cast<T>(address.load()))(std::forward<TArgs>(Args)...);
     }
@@ -75,7 +75,7 @@ namespace Offsets {
         static std::atomic<uintptr_t> address;
 
         if (address == 0)
-            address.store(GetCodeSection().first + FindOffset(Hash.Value));
+            address.store(GetModule().first + FindOffset(Hash.Value));
 
         return (reinterpret_cast<T>(address.load()))(std::forward<TArgs>(Args)...);
     }

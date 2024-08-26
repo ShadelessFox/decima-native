@@ -1,3 +1,6 @@
 [submodule "libs/detours"]
 	path = libs/detours
 	url = https://github.com/microsoft/Detours
+[submodule "libs/pattern16"]
+	path = libs/pattern16
+	url = https://github.com/Dasaav-dsv/Pattern16

@@ -1,35 +1,63 @@
 #include "RTTI.h"
 
-String RTTI::GetName() const {
-    String out;
-    Offsets::CallID<"RTTI::GetName", String *(*)(const RTTI *, String *)>(this, &out);
-    return out;
+#include <format>
+#include <Offsets.h>
+
+[[nodiscard]] std::string RTTI::BaseTypeName() const {
+    switch (mKind) {
+        case RTTIKind::Atom:
+            return reinterpret_cast<const RTTIAtom *>(this)->mTypeName;
+        case RTTIKind::Pointer:
+        case RTTIKind::Container:
+            return reinterpret_cast<const RTTIContainer *>(this)->mContainerType->mTypeName;
+        case RTTIKind::Enum:
+        case RTTIKind::EnumFlags:
+            return reinterpret_cast<const RTTIEnum *>(this)->mTypeName;
+        case RTTIKind::Compound:
+            return reinterpret_cast<const RTTICompound *>(this)->mTypeName;
+        default:
+            throw std::runtime_error("Unreachable code");
+    }
 }
 
-String RTTI::ToString(const void *value) const {
-    String out;
-    Offsets::CallID<"RTTI::ToString", String *(*)(const RTTI *, const void *, String *)>(this, value, &out);
-    return out;
-}
-
-bool RTTI::FromString(void *inObject, const String &inString) const {
-    if (auto compound = AsClass(); compound) {
-        return compound->mFromString && compound->mFromString(inString, static_cast<RTTIObject *>(inObject));
-    }
-    if (auto atom = AsAtom(); atom) {
-        return atom->mFromString && atom->mFromString(inString, inObject);
-    }
-    if (auto container = AsContainer(); container) {
-        return container->mContainerInfo->mFromString && container->mContainerInfo->mFromString(inString, *container, inObject);
-    }
-    if (auto _enum = AsEnum(); _enum) {
-        for (auto i = 0; i < _enum->mNumValues; i++) {
-            const auto &value = _enum->mValues[i];
-            if (inString != value.mName)
-                continue;
-            memcpy(inObject, &value.mValue, _enum->mSize);
-            return true;
+[[nodiscard]] std::string RTTI::TypeName() const {
+    switch (mKind) {
+        case RTTIKind::Atom:
+            return reinterpret_cast<const RTTIAtom *>(this)->mTypeName;
+        case RTTIKind::Pointer:
+        case RTTIKind::Container: {
+            const auto container = reinterpret_cast<const RTTIContainer *>(this);
+            return std::format("{}<{}>", container->mContainerType->mTypeName, container->mItemType->TypeName());
         }
+        case RTTIKind::Enum:
+        case RTTIKind::EnumFlags:
+            return reinterpret_cast<const RTTIEnum *>(this)->mTypeName;
+        case RTTIKind::Compound:
+            return reinterpret_cast<const RTTICompound *>(this)->mTypeName;
+        case RTTIKind::POD:
+            return std::format("POD{}", reinterpret_cast<const RTTIPod *>(this)->mSize);
+        default:
+            throw std::runtime_error("Unreachable code");
     }
-    return false;
+}
+
+[[nodiscard]] std::string RTTI::KindName() const {
+    switch (mKind) {
+        case RTTIKind::Atom:
+            return "primitive";
+        case RTTIKind::Pointer:
+            return "pointer";
+        case RTTIKind::Container:
+            return "container";
+        case RTTIKind::Enum:
+            return "enum";
+        case RTTIKind::Compound:
+            return "class";
+        case RTTIKind::EnumFlags:
+            return "enum flags";
+        case RTTIKind::POD:
+            return "pod";
+        default:
+            throw std::runtime_error("Unreachable code");
+    }
 }
