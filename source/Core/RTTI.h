@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <span>
-#include <system_error>
 #include <format>
 
 #include "../PCore/String.h"
@@ -23,7 +22,10 @@ enum class RTTIKind : std::uint8_t {
     POD = 6
 };
 
-#pragma pack(push, 1)
+enum RTTIFlags : uint8_t {
+    RTTIFactory_Registered = 0x2,
+    FactoryManager_Registered = 0x4
+};
 
 struct RTTIAtom;
 struct RTTIClass;
@@ -31,10 +33,12 @@ struct RTTIEnum;
 struct RTTIPointer;
 struct RTTIContainer;
 
+#pragma pack(push, 1)
+
 struct RTTI {
     std::uint32_t mId;
     RTTIKind mKind;
-    std::uint8_t mFactoryFlags;
+    RTTIFlags mFactoryFlags;
 
     [[nodiscard]] String GetName() const;
 
@@ -51,8 +55,9 @@ struct RTTI {
     }
 
     [[nodiscard]] const RTTIEnum *AsEnum() const {
-        return mKind == RTTIKind::Enum || mKind == RTTIKind::EnumFlags ? reinterpret_cast<const RTTIEnum *>(this)
-                                                                       : nullptr;
+        return mKind == RTTIKind::Enum || mKind == RTTIKind::EnumFlags
+                   ? reinterpret_cast<const RTTIEnum *>(this)
+                   : nullptr;
     }
 
     [[nodiscard]] const RTTIPointer *AsPointer() const {
@@ -119,7 +124,7 @@ struct RTTIBase {
 ASSERT_SIZE(RTTIBase, 0x10);
 
 struct RTTIAttr {
-    using pGetterFunction = void (*)(const void *inObject, void *inValue);
+    using pGetterFunction = void (*)(const void *inObject, void *outValue);
     using pSetterFunction = void (*)(void *inObject, const void *inValue);
 
     const RTTI *mType;
@@ -133,6 +138,13 @@ struct RTTIAttr {
 };
 
 ASSERT_SIZE(RTTIAttr, 0x38);
+
+struct RTTIOrderedAttr : RTTIAttr {
+    const RTTIClass *mParent;
+    const char *mCategory;
+};
+
+ASSERT_SIZE(RTTIOrderedAttr, 0x48);
 
 struct RTTIMessageHandler {
     const RTTI *mMessage;
@@ -179,6 +191,10 @@ struct RTTIClass : RTTI {
     const RTTIMessageOrderEntry *mMessageOrderEntries;
     const void *mGetExportedSymbols;
     const RTTI *mRepresentationType;
+    const RTTIOrderedAttr *mOrderedAttrs;
+    uint32_t mNumOrderedAttrs;
+    RTTIMessageHandler mMsgReadBinary;
+    uint32_t mMsgReadBinaryOffset;
 
     [[nodiscard]] auto GetBases() const { return std::span{mBases, mNumBases}; }
 
@@ -203,7 +219,7 @@ struct RTTIClass : RTTI {
     }
 
     template<typename Func>
-    requires(std::is_invocable_r_v<bool, Func, const RTTIAttr & /* inAttr */, size_t /* inOffset */>)
+        requires(std::is_invocable_r_v<bool, Func, const RTTIAttr & /* inAttr */, size_t /* inOffset */>)
     bool ForEachAttribute(const Func &inCallback, size_t inOffset = 0) const {
         for (const auto &base: GetBases()) {
             if (base.mType->ForEachAttribute(inCallback, inOffset + base.mOffset))
@@ -221,7 +237,7 @@ struct RTTIClass : RTTI {
     }
 };
 
-ASSERT_SIZE(RTTIClass, 0x98);
+ASSERT_SIZE(RTTIClass, 0xC0);
 
 struct RTTIPointerInfo {
     using pGetFunction = const RTTIRefObject *(*)(const RTTIPointer &inType, const void *inObject);
@@ -258,8 +274,8 @@ struct RTTIContainerInfo {
     using pGetSizeFunction = size_t (*)(const RTTIContainer &inType, const void *inObject);
     using pGetItemFunction = void *(*)(const RTTIContainer &inType, const void *inObject, size_t inIndex);
 
-    using pFromStringFunction = bool (*)(const String &inString, const RTTIContainer& inType, void *inObject);
-    using pToStringFunction = bool (*)(const void *inObject, const RTTIContainer& inType, String &outString);
+    using pFromStringFunction = bool (*)(const String &inString, const RTTIContainer &inType, void *inObject);
+    using pToStringFunction = bool (*)(const void *inObject, const RTTIContainer &inType, String &outString);
 
     const char *mName;
     uint16_t mSize;

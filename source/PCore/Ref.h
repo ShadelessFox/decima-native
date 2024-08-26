@@ -3,7 +3,7 @@
 #include "Core/RTTIRefObject.h"
 
 template<typename T>
-requires (std::is_base_of_v<RTTIRefObject, T>)
+    requires (std::is_base_of_v<RTTIRefObject, T>)
 class Ref {
 public:
     Ref() = default;
@@ -43,11 +43,11 @@ public:
         return *m_Ptr;
     }
 
-    const T* Get() const {
+    const T *Get() const {
         return m_Ptr;
     }
 
-    T* Get() {
+    T *Get() {
         return m_Ptr;
     }
 

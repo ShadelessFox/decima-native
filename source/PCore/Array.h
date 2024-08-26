@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <functional>
 #include <iterator>
@@ -15,10 +17,11 @@ public:
 
     ArrayIterator() = delete;
 
-    explicit ArrayIterator(PtrType inPtr) : mPtr(inPtr) {}
+    explicit ArrayIterator(PtrType inPtr) : mPtr(inPtr) {
+    }
 
     ArrayIterator &operator++() {
-        mPtr++;
+        ++mPtr;
         return *this;
     }
 
@@ -31,11 +34,11 @@ public:
     const_pointer operator->() const { return mPtr; }
 
     template<typename = void>
-    requires(!Const)
+        requires(!Const)
     reference operator*() { return *mPtr; }
 
     template<typename = void>
-    requires(!Const)
+        requires(!Const)
     pointer operator->() { return mPtr; }
 
 private:
@@ -52,6 +55,12 @@ public:
     using const_reference = const value_type &;
     using iterator = ArrayIterator<T, false>;
     using const_iterator = ArrayIterator<T, true>;
+
+    Array() = delete;
+
+    Array(const Array &) = delete;
+
+    Array(Array &&) = default;
 
     T &operator[](size_t index) { return m_Entries[index]; }
 

@@ -79,8 +79,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID *reserved) {
         Offsets::MapSignature("RTTI::GetName", "48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 70 48 8B 05 ? ? ? ? 48 33 C4 48 89 44 24 ? 0F B6 41 04 48 8B FA 48 8B F1 83 F8");
         Offsets::MapSignature("RTTI::ToString", "4C 8B DC 57 41 54 41 55 48 83 EC 70 48 8B 05 ? ? ? ? 48 33 C4 48 89 44 24 ? 4C 8B E9 4D 8B E0 0F B6");
 
-        CoreFileManager_Constructor = (void *(*)(void *, void *)) Offsets::ResolveID<"CoreFileManager::Constructor">();
-        CoreFileManager_RegisterEventListener = (void (*)(void *, void *)) Offsets::ResolveID<"CoreFileManager::RegisterEventListener">();
+        CoreFileManager_Constructor = Offsets::ResolveID<"CoreFileManager::Constructor", decltype(CoreFileManager_Constructor)>();
+        CoreFileManager_RegisterEventListener = Offsets::ResolveID<"CoreFileManager::RegisterEventListener", decltype(CoreFileManager_RegisterEventListener)>();
         // @formatter:on
 
         DetourTransactionBegin();

@@ -59,7 +59,7 @@ namespace Offsets {
     }
 
     void MapSignature(const std::string_view ID, const std::string_view Signature, int Adjustment) {
-        auto [moduleBase, moduleEnd] = GetCodeSection();
+        auto [moduleBase, moduleEnd] = GetModule();
         uintptr_t address = XUtil::FindPattern(moduleBase, moduleEnd - moduleBase, Signature.data());
 
         if (address == 0)
