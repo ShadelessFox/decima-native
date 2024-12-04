@@ -25,14 +25,12 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
         mPointerTypes.emplace(as_pointer->mPointerType->mTypeName);
     }
 
-    auto type = inType.BaseTypeName();
+    auto name = inType.BaseName();
     auto kind = inType.KindName();
-    // auto hash = inType.GetHash().ToString();
     auto ctx = inCtx;
 
-    JsonNameObject(ctx, type.c_str());
+    JsonNameObject(ctx, name.c_str());
     JsonNameValueStr(ctx, "kind", kind.c_str());
-    // JsonNameValueStr(ctx, "hash", hash.c_str());
 
     if (auto as_class = inType.AsCompound(); as_class) {
         JsonNameValueNum(ctx, "version", as_class->mVersion);
@@ -42,7 +40,7 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
             JsonNameArray(ctx, "messages");
 
             for (const auto &message: as_class->MessageHandlers()) {
-                auto message_type = message.mMessage->TypeName();
+                auto message_type = message.mMessage->Name();
                 JsonValueStr(ctx, message_type.c_str());
             }
 
@@ -53,7 +51,7 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
             JsonNameArray(ctx, "bases");
 
             for (const auto &base: as_class->Bases()) {
-                auto base_type = base.mType->TypeName();
+                auto base_type = base.mType->Name();
 
                 JsonBeginCompactObject(ctx);
                 JsonNameValueStr(ctx, "name", base_type.c_str());
@@ -77,7 +75,7 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
 
                 JsonBeginCompactObject(ctx);
                 JsonNameValueStr(ctx, "name", attr.mName);
-                JsonNameValueStr(ctx, "type", attr.mType->TypeName().c_str());
+                JsonNameValueStr(ctx, "type", attr.mType->Name().c_str());
                 JsonNameValueNum(ctx, "offset", attr.mOffset);
                 JsonNameValueNum(ctx, "flags", attr.mFlags);
                 if (attr.mMinValue)
@@ -112,9 +110,15 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
 
         JsonEndArray(ctx);
     } else if (auto as_atom = inType.AsAtom(); as_atom) {
-        auto base_type = as_atom->mParentType->TypeName();
+        auto base_type = as_atom->mParentType->Name();
 
         JsonNameValueStr(ctx, "base_type", base_type.c_str());
+        // JsonNameValueBool(ctx, "simple", as_atom->mSimple);
+    } else if (auto as_container = inType.AsContainer(); as_container) {
+        const auto& container = *as_container->mContainerType;
+        // JsonNameValueBool(ctx, "array", container.mArray);
+        // if (!container.mConstructor)
+        //     JsonNameValueNum(ctx, "size", container.mSize / container.mAlignment);
     }
 
     JsonEndObject(ctx);

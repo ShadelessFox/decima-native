@@ -8,7 +8,7 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DRTTI_STANDALON
 add_subdirectory(libs)
 
 add_library(decima_native SHARED
-        source/Core/MurmurHashValue.cpp
+        source/Core/GGUUID.cpp
         source/Core/RTTI.cpp
         source/Util/json.cpp
         source/Dumper.cpp

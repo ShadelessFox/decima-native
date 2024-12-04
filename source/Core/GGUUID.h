@@ -2,10 +2,11 @@
 
 #include <cstdint>
 #include <array>
+#include <intsafe.h>
 #include <string>
 
-struct MurmurHashValue {
+struct GGUUID {
     std::array<uint8_t, 16> mData {};
 
-    std::string ToString();
+    [[nodiscard]] std::string ToString() const;
 };

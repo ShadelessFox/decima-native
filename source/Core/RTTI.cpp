@@ -3,7 +3,7 @@
 #include <format>
 #include <Offsets.h>
 
-[[nodiscard]] std::string RTTI::BaseTypeName() const {
+[[nodiscard]] std::string RTTI::BaseName() const {
     switch (mKind) {
         case RTTIKind::Atom:
             return reinterpret_cast<const RTTIAtom *>(this)->mTypeName;
@@ -20,14 +20,14 @@
     }
 }
 
-[[nodiscard]] std::string RTTI::TypeName() const {
+[[nodiscard]] std::string RTTI::Name() const {
     switch (mKind) {
         case RTTIKind::Atom:
             return reinterpret_cast<const RTTIAtom *>(this)->mTypeName;
         case RTTIKind::Pointer:
         case RTTIKind::Container: {
             const auto container = reinterpret_cast<const RTTIContainer *>(this);
-            return std::format("{}<{}>", container->mContainerType->mTypeName, container->mItemType->TypeName());
+            return std::format("{}<{}>", container->mContainerType->mTypeName, container->mItemType->Name());
         }
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:

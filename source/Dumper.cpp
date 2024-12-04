@@ -15,6 +15,7 @@
 #include <array>
 #include <print>
 #include <XUtil.h>
+#include <Core/GGUUID.h>
 
 static auto TypeComparator = [](const RTTI *inFirst, const RTTI *inSecond) -> bool {
     static constexpr std::array Order{
@@ -28,13 +29,13 @@ static auto TypeComparator = [](const RTTI *inFirst, const RTTI *inSecond) -> bo
     };
     if (inFirst->mKind != inSecond->mKind)
         return std::ranges::find(Order, inFirst->mKind) < std::ranges::find(Order, inSecond->mKind);
-    return inFirst->TypeName() < inSecond->TypeName();
+    return inFirst->Name() < inSecond->Name();
 };
 
 static std::set<const RTTI *, decltype(TypeComparator)> AllTypes;
 
 static void ScanType(const RTTI &inType) {
-    auto name = inType.TypeName();
+    auto name = inType.Name();
     if (AllTypes.contains(&inType))
         return;
 
@@ -156,6 +157,16 @@ static void FactoryManager_RegisterType_Hook(void *inFactory, const RTTI &inType
     }
 }
 
+static uint64_t (*StreamingDataSource_MakeId)(const GGUUID& inObjectUUID, uint8_t inChannel);
+
+static uint64_t StreamingDataSource_MakeId_Hook(const GGUUID& inObjectUUID, uint8_t inChannel) {
+    auto hash = StreamingDataSource_MakeId(inObjectUUID, inChannel);
+    auto uuid = inObjectUUID.ToString();
+
+    std::printf("%s @ %d = %16llx\n", uuid.c_str(), inChannel, hash);
+    return hash;
+}
+
 void Dumper::Attach() {
     auto [moduleBase, moduleEnd] = Offsets::GetModule();
     auto offsetFromInstruction = [&](const char *Signature, uint32_t Add) {
@@ -171,20 +182,27 @@ void Dumper::Attach() {
     Offsets::MapAddress("MemoryPool::Instance", offsetFromInstruction("48 8B 0D ? ? ? ? 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 08 45 33 C0 48 8D 15", 3));
     Offsets::MapAddress("String::sEmptyBuffer", offsetFromInstruction("48 8D 15 ? ? ? ? 48 3B C2 B9 07 00 00 00 C7 00 01 00 00 00 41 0F 44 C8 89", 3));
     Offsets::MapSignature("String::Buffer::~Buffer", "40 57 48 83 EC 20 83 39 00 48 8B F9 7D 6B 48 89 5C 24 38 48 8D 05");
-    Offsets::MapSignature("MurmurHashValue::ToString", "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1 48 8B FA 48");
+    Offsets::MapSignature("GGUUID::ToString", "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1 48 8B FA 48");
+    Offsets::MapSignature("StreamingDataSource::MakeId", "48 89 5C 24 08 4C 8B 19 33 C0 F2 49 0F 38 F1 C3 44 8B D0 49 8B C3 F2 4C 0F 38 F1");
+
+    Offsets::MapSignature("Stream::ReadInt32", "48 89 5C 24 18 57 48 83 EC 20 48 8B 01 48 8B FA 41 B8 04 00 00 00 48 8D 54 24 38 48");
+    Offsets::MapSignature("Stream::ReadStreamingDataSource", "48 89 5C 24 18 57 48 83 EC 20 48 8B 01 48 8B FA 41 B8 01 00 00 00 48 8D 54 24 30 48");
     // @formatter:on
 
     FactoryManager_RegisterType = Offsets::ResolveID<"FactoryManager::RegisterType", decltype(FactoryManager_RegisterType)>();
+    StreamingDataSource_MakeId = Offsets::ResolveID<"StreamingDataSource::MakeId", decltype(StreamingDataSource_MakeId)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    // DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
     DetourTransactionCommit();
 }
 
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    // DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
     DetourTransactionCommit();
 }

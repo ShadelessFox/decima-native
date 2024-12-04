@@ -63,7 +63,7 @@ void IdaExporter::Export(const RTTI &inType) {
     const auto type_name = IDATypeName(inType);
     const auto kind_name = IdaKindName(inType);
 
-    fprintf(mFile, "\n\t// %s %s\n", inType.KindName().c_str(), inType.TypeName().c_str());
+    fprintf(mFile, "\n\t// %s %s\n", inType.KindName().c_str(), inType.Name().c_str());
     fprintf(mFile, "\tset_name(%#llx, \"RTTI_%s\");\n", rebase(&inType), type_name.c_str());
     fprintf(mFile, "\tapply_type(%#llx, \"%s\");\n", rebase(&inType), kind_name.c_str());
 

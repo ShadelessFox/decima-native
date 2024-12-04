@@ -39,9 +39,9 @@ struct RTTI {
     RTTIKind mKind;
     RTTIFlags mFactoryFlags;
 
-    [[nodiscard]] std::string BaseTypeName() const;
+    [[nodiscard]] std::string BaseName() const;
 
-    [[nodiscard]] std::string TypeName() const;
+    [[nodiscard]] std::string Name() const;
 
     [[nodiscard]] std::string KindName() const;
 
@@ -235,6 +235,7 @@ struct RTTIContainer : RTTI {
         const char *mTypeName;
         uint16_t mSize;
         uint8_t mAlignment;
+        uint8_t mArray;
         const void *mConstructor;
         const void *mDestructor;
         const void *mResize;
