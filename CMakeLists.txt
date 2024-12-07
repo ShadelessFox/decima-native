@@ -11,9 +11,9 @@ add_library(decima_native SHARED
         source/Core/GGUUID.cpp
         source/Core/RTTI.cpp
         source/Util/json.cpp
+        source/Util/Offsets.cpp
+        source/Util/XUtil.cpp
         source/Dumper.cpp
-        source/Offsets.cpp
-        source/XUtil.cpp
         source/exports.c
         source/main.cpp
         source/Exporter/Exporter.cpp

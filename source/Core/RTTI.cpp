@@ -1,7 +1,6 @@
 #include "RTTI.h"
 
 #include <format>
-#include <Offsets.h>
 
 [[nodiscard]] std::string RTTI::BaseName() const {
     switch (mKind) {

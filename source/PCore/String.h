@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Offsets.h"
+#include "Util/Offsets.h"
 #include "MemoryPool.h"
 
 class String {

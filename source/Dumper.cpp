@@ -5,17 +5,19 @@
 #include "detours.h"
 #include "Pattern16.h"
 
-#include "Offsets.h"
+#include "Util/Offsets.h"
+#include "Util/XUtil.h"
+
 #include "Core/RTTI.h"
+#include "Core/GGUUID.h"
+#include "PCore/MemoryPool.h"
+
 #include "Exporter/JsonExporter.h"
 #include "Exporter/IdaExporter.h"
-#include "PCore/MemoryPool.h"
 
 #include <set>
 #include <array>
 #include <print>
-#include <XUtil.h>
-#include <Core/GGUUID.h>
 
 static auto TypeComparator = [](const RTTI *inFirst, const RTTI *inSecond) -> bool {
     static constexpr std::array Order{
@@ -157,9 +159,9 @@ static void FactoryManager_RegisterType_Hook(void *inFactory, const RTTI &inType
     }
 }
 
-static uint64_t (*StreamingDataSource_MakeId)(const GGUUID& inObjectUUID, uint8_t inChannel);
+static uint64_t (*StreamingDataSource_MakeId)(const GGUUID &inObjectUUID, uint8_t inChannel);
 
-static uint64_t StreamingDataSource_MakeId_Hook(const GGUUID& inObjectUUID, uint8_t inChannel) {
+static uint64_t StreamingDataSource_MakeId_Hook(const GGUUID &inObjectUUID, uint8_t inChannel) {
     auto hash = StreamingDataSource_MakeId(inObjectUUID, inChannel);
     auto uuid = inObjectUUID.ToString();
 
@@ -194,7 +196,7 @@ void Dumper::Attach() {
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    // DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
     DetourAttach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
     DetourTransactionCommit();
 }
@@ -202,7 +204,7 @@ void Dumper::Attach() {
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    // DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
     DetourDetach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
     DetourTransactionCommit();
 }
