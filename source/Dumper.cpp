@@ -24,6 +24,7 @@ static auto TypeComparator = [](const RTTI *inFirst, const RTTI *inSecond) -> bo
         RTTIKind::Compound,
         RTTIKind::Enum,
         RTTIKind::EnumFlags,
+        RTTIKind::EnumBitSet,
         RTTIKind::Atom,
         RTTIKind::Pointer,
         RTTIKind::Container,
@@ -126,7 +127,7 @@ static void ScanMemoryForTypes() {
             if (!IsValidPtr(compound->mTypeName) ||
                 compound->mNumBases && !IsValidPtr(compound->mBases) ||
                 compound->mNumAttrs && !IsValidPtr(compound->mAttrs) ||
-                compound->mNumFunctions && !IsValidPtr(compound->mFunctions) ||
+                // compound->mNumFunctions && !IsValidPtr(compound->mFunctions) ||
                 compound->mNumMessageHandlers && !IsValidPtr(compound->mMessageHandlers)
             ) {
                 continue;
@@ -140,71 +141,52 @@ static void ScanMemoryForTypes() {
     }
 }
 
-static void (*FactoryManager_RegisterType)(void *, const RTTI &);
+static bool (*RTTIFactory_RegisterType)(void *, const RTTI &);
 
-static void FactoryManager_RegisterType_Hook(void *inFactory, const RTTI &inType) {
-    FactoryManager_RegisterType(inFactory, inType);
-    ScanType(inType);
+static void (*RTTIFactory_RegisterAllTypes)();
 
-    if (AllTypes.size() == 9057) {
-        puts("Scanning memory...\n");
-        ScanMemoryForTypes();
-
-        puts("Exporting types...");
-        std::vector<const RTTI *> types{AllTypes.cbegin(), AllTypes.cend()};
-        JsonExporter("hrzr").Export(types);
-        IdaExporter("hrzr").Export(types);
-
-        exit(EXIT_SUCCESS);
+static bool RTTIFactory_RegisterType_Hook(void *inFactory, const RTTI &inType) {
+    if (RTTIFactory_RegisterType(inFactory, inType)) {
+        ScanType(inType);
+        return true;
     }
+    return false;
 }
 
-static uint64_t (*StreamingDataSource_MakeId)(const GGUUID &inObjectUUID, uint8_t inChannel);
+static void RTTIFactory_RegisterAllTypes_Hook() {
+    RTTIFactory_RegisterAllTypes();
 
-static uint64_t StreamingDataSource_MakeId_Hook(const GGUUID &inObjectUUID, uint8_t inChannel) {
-    auto hash = StreamingDataSource_MakeId(inObjectUUID, inChannel);
-    auto uuid = inObjectUUID.ToString();
+    puts("Scanning memory...\n");
+    ScanMemoryForTypes();
 
-    std::printf("%s @ %d = %16llx\n", uuid.c_str(), inChannel, hash);
-    return hash;
+    puts("Exporting types...");
+    std::vector<const RTTI *> types{AllTypes.cbegin(), AllTypes.cend()};
+    JsonExporter("dump/hfw").Export(types);
+    IdaExporter("dump/hfw").Export(types);
+
+    exit(EXIT_SUCCESS);
 }
 
 void Dumper::Attach() {
-    auto [moduleBase, moduleEnd] = Offsets::GetModule();
-    auto offsetFromInstruction = [&](const char *Signature, uint32_t Add) {
-        auto addr = XUtil::FindPattern(moduleBase, moduleEnd - moduleBase, Signature);
-        if (!addr)
-            return addr;
-        auto relOffset = *reinterpret_cast<int32_t *>(addr + Add) + sizeof(int32_t);
-        return addr + Add + relOffset - moduleBase;
-    };
-
     // @formatter:off
-    Offsets::MapSignature("FactoryManager::RegisterType", "48 89 5C 24 20 55 48 83 EC 20 F6 42 05 01 48 8B DA 48 89 74 24 30 48");
-    Offsets::MapAddress("MemoryPool::Instance", offsetFromInstruction("48 8B 0D ? ? ? ? 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 08 45 33 C0 48 8D 15", 3));
-    Offsets::MapAddress("String::sEmptyBuffer", offsetFromInstruction("48 8D 15 ? ? ? ? 48 3B C2 B9 07 00 00 00 C7 00 01 00 00 00 41 0F 44 C8 89", 3));
-    Offsets::MapSignature("String::Buffer::~Buffer", "40 57 48 83 EC 20 83 39 00 48 8B F9 7D 6B 48 89 5C 24 38 48 8D 05");
-    Offsets::MapSignature("GGUUID::ToString", "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1 48 8B FA 48");
-    Offsets::MapSignature("StreamingDataSource::MakeId", "48 89 5C 24 08 4C 8B 19 33 C0 F2 49 0F 38 F1 C3 44 8B D0 49 8B C3 F2 4C 0F 38 F1");
-
-    Offsets::MapSignature("Stream::ReadInt32", "48 89 5C 24 18 57 48 83 EC 20 48 8B 01 48 8B FA 41 B8 04 00 00 00 48 8D 54 24 38 48");
-    Offsets::MapSignature("Stream::ReadStreamingDataSource", "48 89 5C 24 18 57 48 83 EC 20 48 8B 01 48 8B FA 41 B8 01 00 00 00 48 8D 54 24 30 48");
+    Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
+    Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24");
     // @formatter:on
 
-    FactoryManager_RegisterType = Offsets::ResolveID<"FactoryManager::RegisterType", decltype(FactoryManager_RegisterType)>();
-    StreamingDataSource_MakeId = Offsets::ResolveID<"StreamingDataSource::MakeId", decltype(StreamingDataSource_MakeId)>();
+    RTTIFactory_RegisterType = Offsets::ResolveID<"RTTIFactory::RegisterType", decltype(RTTIFactory_RegisterType)>();
+    RTTIFactory_RegisterAllTypes = Offsets::ResolveID<"RTTIFactory::RegisterAllTypes", decltype(RTTIFactory_RegisterAllTypes)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
     DetourTransactionCommit();
 }
 
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
     DetourTransactionCommit();
 }

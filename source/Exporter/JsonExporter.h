@@ -15,6 +15,6 @@ public:
 private:
     void Export(const RTTI &inType, JsonContext *inCtx);
 
-    std::set<const char *> mContainerTypes;
-    std::set<const char *> mPointerTypes;
+    std::set<std::string> mContainerTypes;
+    std::set<std::string> mPointerTypes;
 };

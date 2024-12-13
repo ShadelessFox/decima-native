@@ -82,7 +82,7 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
                     JsonNameValueStr(ctx, "min", attr.mMinValue);
                 if (attr.mMaxValue)
                     JsonNameValueStr(ctx, "max", attr.mMaxValue);
-                if (attr.mGetter && attr.mSetter)
+                if (attr.mGetter)
                     JsonNameValueBool(ctx, "property", 1);
                 JsonEndCompactObject(ctx);
             }

@@ -102,16 +102,16 @@ void IdaExporter::Export(const RTTI &inType) {
             fprintf(mFile, "\tapply_type(%#llx, \"RTTIInheritedMessageHandler[%d]\");\n", rebase(message_order_entries), message_order_entries_count);
         }
 
-        if (const auto functions = as_class->mFunctions) {
-            const auto functions_count = as_class->mNumFunctions;
-            fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(functions), functions_count * sizeof(RTTIFunction));
-            fprintf(mFile, "\tset_name(%#llx, \"%s::sFunctions\");\n", rebase(functions), type_name.c_str());
-            fprintf(mFile, "\tapply_type(%#llx, \"RTTIFunction[%d]\");\n", rebase(functions), functions_count);
-
-            for (const auto& function : as_class->Functions()) {
-                fprintf(mFile, "\tset_name(%#llx, \"%s::%s\");\n", rebase(function.mFunction), type_name.c_str(), function.mName);
-            }
-        }
+        // if (const auto functions = as_class->mFunctions) {
+        //     const auto functions_count = as_class->mNumFunctions;
+        //     fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(functions), functions_count * sizeof(RTTIFunction));
+        //     fprintf(mFile, "\tset_name(%#llx, \"%s::sFunctions\");\n", rebase(functions), type_name.c_str());
+        //     fprintf(mFile, "\tapply_type(%#llx, \"RTTIFunction[%d]\");\n", rebase(functions), functions_count);
+        //
+        //     for (const auto& function : as_class->Functions()) {
+        //         fprintf(mFile, "\tset_name(%#llx, \"%s::%s\");\n", rebase(function.mFunction), type_name.c_str(), function.mName);
+        //     }
+        // }
 
         if (as_class->mGetExportedSymbols) {
             fprintf(mFile, "\tset_name(%#llx, \"%s::GetExportedSymbols\");\n", rebase(as_class->mGetExportedSymbols), type_name.c_str());

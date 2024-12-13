@@ -18,7 +18,8 @@ enum class RTTIKind : uint8_t {
     Enum,
     Compound,
     EnumFlags,
-    POD
+    POD,
+    EnumBitSet
 };
 
 enum RTTIFlags : uint8_t {
@@ -31,6 +32,7 @@ struct RTTICompound;
 struct RTTIEnum;
 struct RTTIPointer;
 struct RTTIContainer;
+struct RTTIPod;
 
 #pragma pack(push, 1)
 
@@ -45,27 +47,17 @@ struct RTTI {
 
     [[nodiscard]] std::string KindName() const;
 
-    [[nodiscard]] const RTTIAtom *AsAtom() const {
-        return mKind == RTTIKind::Atom ? reinterpret_cast<const RTTIAtom *>(this) : nullptr;
-    }
+    [[nodiscard]] const RTTIAtom *AsAtom() const;
 
-    [[nodiscard]] const RTTICompound *AsCompound() const {
-        return mKind == RTTIKind::Compound ? reinterpret_cast<const RTTICompound *>(this) : nullptr;
-    }
+    [[nodiscard]] const RTTICompound *AsCompound() const;
 
-    [[nodiscard]] const RTTIEnum *AsEnum() const {
-        return mKind == RTTIKind::Enum || mKind == RTTIKind::EnumFlags
-                   ? reinterpret_cast<const RTTIEnum *>(this)
-                   : nullptr;
-    }
+    [[nodiscard]] const RTTIEnum *AsEnum() const;
 
-    [[nodiscard]] const RTTIPointer *AsPointer() const {
-        return mKind == RTTIKind::Pointer ? reinterpret_cast<const RTTIPointer *>(this) : nullptr;
-    }
+    [[nodiscard]] const RTTIPointer *AsPointer() const;
 
-    [[nodiscard]] const RTTIContainer *AsContainer() const {
-        return mKind == RTTIKind::Container ? reinterpret_cast<const RTTIContainer *>(this) : nullptr;
-    }
+    [[nodiscard]] const RTTIContainer *AsContainer() const;
+
+    [[nodiscard]] const RTTIPod *AsPOD() const;
 };
 
 #pragma pack(pop)
@@ -80,6 +72,7 @@ struct RTTIAtom : RTTI {
     const RTTIAtom *mParentType;
     const void *mFromString;
     const void *mToString;
+    const void *mUnk30;
     const void *mCopy;
     const void *mEquals;
     const void *mConstructor;
@@ -91,20 +84,20 @@ struct RTTIAtom : RTTI {
     const RTTI *mRepresentationType;
 };
 
-ASSERT_SIZE(RTTIAtom, 0x78);
+ASSERT_SIZE(RTTIAtom, 0x80);
 
 struct RTTIValue {
     uint32_t mValue;
     const char *mName;
-    std::array<const char*, 3> mAliases;
+    std::array<const char*, 4> mAliases;
 };
 
-ASSERT_SIZE(RTTIValue, 0x28);
+ASSERT_SIZE(RTTIValue, 0x30);
 
 struct RTTIEnum : RTTI {
     uint8_t mSize;
-    uint16_t mNumValues;
     uint8_t mAlignment;
+    uint16_t mNumValues;
     const char *mTypeName;
     const RTTIValue *mValues;
     const RTTI *mRepresentationType;
@@ -168,25 +161,26 @@ ASSERT_SIZE(RTTIFunction, 0x20);
 struct RTTICompound : RTTI {
     uint8_t mNumBases;
     uint8_t mNumAttrs;
-    uint8_t mNumFunctions;
+    // uint8_t mNumFunctions;
     uint8_t mNumMessageHandlers;
     uint8_t mNumMessageOrderEntries;
-    uint8_t _mPad0B[3];
-    uint16_t mVersion;
+    uint8_t _mPad09;
+    uint32_t mVersion;
     uint32_t mSize;
     uint16_t mAlignment;
     uint16_t mFlags;
     const void *mConstructor;
     const void *mDestructor;
     const void *mFromString;
+    const void *mUnk30;
     const void *mToString;
     const char *mTypeName;
-    uint32_t mTypeNameCrc;
+    // uint32_t mTypeNameCrc;
     const RTTI *mNextType;
     const RTTI *mPrevType;
     const RTTIBase *mBases;
     const RTTIAttr *mAttrs;
-    const RTTIFunction *mFunctions;
+    // const RTTIFunction *mFunctions;
     const RTTIMessageHandler *mMessageHandlers;
     const RTTIMessageOrderEntry *mMessageOrderEntries;
     const void *mGetExportedSymbols;
@@ -195,39 +189,37 @@ struct RTTICompound : RTTI {
     uint32_t mNumOrderedAttrs;
     RTTIMessageHandler mMsgReadBinary;
     uint32_t mMsgReadBinaryOffset;
-    void *mUnkB8;
+    uint32_t mUnkAC;
 
     [[nodiscard]] auto Bases() const { return std::span{mBases, mNumBases}; }
 
     [[nodiscard]] auto Attrs() const { return std::span{mAttrs, mNumAttrs}; }
 
-    [[nodiscard]] auto Functions() const { return std::span{mFunctions, mNumFunctions}; }
+    // [[nodiscard]] auto Functions() const { return std::span{mFunctions, mNumFunctions}; }
 
     [[nodiscard]] auto MessageHandlers() const { return std::span{mMessageHandlers, mNumMessageHandlers}; }
 };
 
-ASSERT_SIZE(RTTICompound, 0xC0);
+ASSERT_SIZE(RTTICompound, 0xB0);
 
 struct RTTIPointer : RTTI {
     struct Data {
-        using pGetFunction = const RTTIRefObject *(*)(const RTTIPointer &inType, const void *inObject);
-        using pSetFunction = void (*)(const RTTIPointer &inType, void *inObject, const RTTIRefObject *inValue);
-
         const char *mTypeName;
         uint32_t mSize;
-        uint32_t mAlignment;
+        uint8_t mAlignment;
         const void *mConstructor;
         const void *mDestructor;
-        pGetFunction mGetter;
-        pSetFunction mSetter;
+        const void* mGetter;
+        const void* mSetter;
         const void *mCopier;
     };
 
     const RTTI *mItemType;
     const Data *mPointerType;
+    const char *mTypeName;
 };
 
-ASSERT_SIZE(RTTIPointer, 0x18);
+ASSERT_SIZE(RTTIPointer, 0x20);
 ASSERT_SIZE(RTTIPointer::Data, 0x38);
 
 struct RTTIContainer : RTTI {
@@ -238,37 +230,20 @@ struct RTTIContainer : RTTI {
         uint8_t mArray;
         const void *mConstructor;
         const void *mDestructor;
-        const void *mResize;
-        const void *mInsert;
-        const void *mRemove;
-        const void *mGetSize;
-        const void *mGetItem;
-        const void *mUnk48;
-        const void *mUnk50;
-        const void *mUnk58;
-        const void *mUnk60;
-        const void *mUnk68;
-        const void *mUnk70;
-        const void *mUnk78;
-        const void *mUnk80;
-        const void *mUnk88;
-        const void *mUnk90;
-        const void *mToString;
-        const void *mFromString;
-        const void *mUnkA8;
-        const void *mUnkB0;
-        const void *mUnkB8;
+        // ...
     };
 
     const RTTI *mItemType;
     const Data *mContainerType;
+    const char *mTypeName;
 };
 
-ASSERT_SIZE(RTTIContainer, 0x18);
-ASSERT_SIZE(RTTIContainer::Data, 0xC0);
+ASSERT_SIZE(RTTIContainer, 0x20);
+ASSERT_SIZE(RTTIContainer::Data, 0x20);
 
 struct RTTIPod : RTTI {
     uint32_t mSize;
+    const char* mTypeName;
 };
 
-ASSERT_SIZE(RTTIPod, 0x0C);
+ASSERT_SIZE(RTTIPod, 0x18);

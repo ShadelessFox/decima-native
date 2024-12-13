@@ -28,5 +28,5 @@ set_target_properties(decima_native PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThread
 add_custom_command(TARGET decima_native POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:decima_native>
-        "\"E:\\SteamLibrary\\steamapps\\common\\Horizon Zero Dawn Remastered\\winhttp.dll\""
+        "\"E:\\SteamLibrary\\steamapps\\common\\Horizon Forbidden West Complete Edition\\winhttp.dll\""
 )
