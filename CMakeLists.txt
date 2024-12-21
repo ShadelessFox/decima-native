@@ -8,6 +8,7 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DRTTI_STANDALON
 add_subdirectory(libs)
 
 add_library(decima_native SHARED
+        source/Core/ExportedSymbolGroup.cpp
         source/Core/GGUUID.cpp
         source/Core/RTTI.cpp
         source/Util/json.cpp
@@ -19,6 +20,7 @@ add_library(decima_native SHARED
         source/Exporter/Exporter.cpp
         source/Exporter/IdaExporter.cpp
         source/Exporter/JsonExporter.cpp
+        source/Exporter/SymbolsExporter.cpp
 )
 
 target_include_directories(decima_native PRIVATE source)

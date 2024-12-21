@@ -152,6 +152,9 @@ void JsonValue(struct JsonContext *ctx, struct JsonValue value) {
     WriteDeferredName(ctx);
     BeforeValue(ctx);
 
+    if (value.type == JsonType_String && value.string == nullptr)
+        value.type = JsonType_Null;
+
     switch (value.type) {
         case JsonType_String:
             WriteString(ctx, value.string);
@@ -161,6 +164,9 @@ void JsonValue(struct JsonContext *ctx, struct JsonValue value) {
             break;
         case JsonType_Bool:
             fputs(value.integer ? "true" : "false", ctx->stream);
+            break;
+        case JsonType_Null:
+            fputs("null", ctx->stream);
             break;
     }
 }

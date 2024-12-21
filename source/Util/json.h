@@ -8,10 +8,12 @@
 #define JsonValueStr(_Ctx, _Value) JsonValue(_Ctx, JsonValue::OfString(_Value))
 #define JsonValueNum(_Ctx, _Value) JsonValue(_Ctx, JsonValue::OfInt(_Value))
 #define JsonValueBool(_Ctx, _Value) JsonValue(_Ctx, JsonValue::OfBool(_Value))
+#define JsonValueNull(_Ctx) JsonValue(_Ctx, JsonValue::OfNull())
 #else
 #define JsonValueStr(_Ctx, _Value) JsonValue(_Ctx, (struct JsonValue) {.type = JsonType_String, .string = (_Value)})
 #define JsonValueNum(_Ctx, _Value) JsonValue(_Ctx, (struct JsonValue) {.type = JsonType_Integer, .integer = (_Value)})
 #define JsonValueBool(_Ctx, _Value) JsonValue(_Ctx, (struct JsonValue) {.type = JsonType_Bool, .integer = (_Value)})
+#define JsonValueNull(_Ctx) JsonValue(_Ctx, (struct JsonValue) {.type = JsonType_Null})
 #endif
 
 #define JsonBeginCompactObject(_Ctx) do { JsonBeginObject(_Ctx); JsonCompact(_Ctx, 1); } while (0)
@@ -35,6 +37,12 @@
     do {                                       \
         JsonName(_Ctx, _Name);                 \
         JsonValueBool(_Ctx, _Value);           \
+    } while (0)
+
+#define JsonNameValueNull(_Ctx, _Name) \
+    do {                               \
+        JsonName(_Ctx, _Name);         \
+        JsonValueNull(_Ctx);           \
     } while (0)
 
 #define JsonNameObject(_Ctx, _Name) \
@@ -72,7 +80,8 @@ struct JsonContext {
 enum JsonType {
     JsonType_String,
     JsonType_Integer,
-    JsonType_Bool
+    JsonType_Bool,
+    JsonType_Null
 };
 
 struct JsonValue {
@@ -101,6 +110,12 @@ struct JsonValue {
         JsonValue value{};
         value.type = JsonType_Bool;
         value.integer = inValue;
+        return value;
+    }
+
+    static JsonValue OfNull() {
+        JsonValue value{};
+        value.type = JsonType_Null;
         return value;
     }
 #endif

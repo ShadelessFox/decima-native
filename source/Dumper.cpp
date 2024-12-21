@@ -9,11 +9,11 @@
 #include "Util/XUtil.h"
 
 #include "Core/RTTI.h"
-#include "Core/GGUUID.h"
 #include "PCore/MemoryPool.h"
 
 #include "Exporter/JsonExporter.h"
 #include "Exporter/IdaExporter.h"
+#include "Exporter/SymbolsExporter.h"
 
 #include <set>
 #include <array>
@@ -140,33 +140,30 @@ static void ScanMemoryForTypes() {
     }
 }
 
+static void ExportTypes() {
+    puts("Scanning memory...\n");
+    ScanMemoryForTypes();
+
+    puts("Exporting types...");
+    std::vector<const RTTI *> types{AllTypes.cbegin(), AllTypes.cend()};
+    JsonExporter("hrzr").Export(types);
+    IdaExporter("hrzr").Export(types);
+    SymbolsExporter("hrzr_symbols").Export(types);
+
+    ExitProcess(0);
+}
+
 static void (*FactoryManager_RegisterType)(void *, const RTTI &);
+static void (*Symbols_ExportSymbolGroups)();
 
 static void FactoryManager_RegisterType_Hook(void *inFactory, const RTTI &inType) {
     FactoryManager_RegisterType(inFactory, inType);
     ScanType(inType);
-
-    if (AllTypes.size() == 9057) {
-        puts("Scanning memory...\n");
-        ScanMemoryForTypes();
-
-        puts("Exporting types...");
-        std::vector<const RTTI *> types{AllTypes.cbegin(), AllTypes.cend()};
-        JsonExporter("hrzr").Export(types);
-        IdaExporter("hrzr").Export(types);
-
-        exit(EXIT_SUCCESS);
-    }
 }
 
-static uint64_t (*StreamingDataSource_MakeId)(const GGUUID &inObjectUUID, uint8_t inChannel);
-
-static uint64_t StreamingDataSource_MakeId_Hook(const GGUUID &inObjectUUID, uint8_t inChannel) {
-    auto hash = StreamingDataSource_MakeId(inObjectUUID, inChannel);
-    auto uuid = inObjectUUID.ToString();
-
-    std::printf("%s @ %d = %16llx\n", uuid.c_str(), inChannel, hash);
-    return hash;
+static void Symbols_ExportSymbolGroups_Hook() {
+    Symbols_ExportSymbolGroups();
+    ExportTypes();
 }
 
 void Dumper::Attach() {
@@ -181,6 +178,9 @@ void Dumper::Attach() {
 
     // @formatter:off
     Offsets::MapSignature("FactoryManager::RegisterType", "48 89 5C 24 20 55 48 83 EC 20 F6 42 05 01 48 8B DA 48 89 74 24 30 48");
+    Offsets::MapSignature("Symbols::ExportSymbolGroups", "41 56 48 83 EC 30 48 89 5C 24 ? 48 8D 0D ? ? ? ? 48 89 6C 24 ? 48 89");
+    Offsets::MapAddress("Symbols::sExportedSymbolGroups", offsetFromInstruction("48 8B 3D ? ? ? ? 48 63 05 ? ? ? ? 48 8D 2C C7 48 3B FD 74 45 48 8B", 3) - 8);
+
     Offsets::MapAddress("MemoryPool::Instance", offsetFromInstruction("48 8B 0D ? ? ? ? 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 08 45 33 C0 48 8D 15", 3));
     Offsets::MapAddress("String::sEmptyBuffer", offsetFromInstruction("48 8D 15 ? ? ? ? 48 3B C2 B9 07 00 00 00 C7 00 01 00 00 00 41 0F 44 C8 89", 3));
     Offsets::MapSignature("String::Buffer::~Buffer", "40 57 48 83 EC 20 83 39 00 48 8B F9 7D 6B 48 89 5C 24 38 48 8D 05");
@@ -192,19 +192,19 @@ void Dumper::Attach() {
     // @formatter:on
 
     FactoryManager_RegisterType = Offsets::ResolveID<"FactoryManager::RegisterType", decltype(FactoryManager_RegisterType)>();
-    StreamingDataSource_MakeId = Offsets::ResolveID<"StreamingDataSource::MakeId", decltype(StreamingDataSource_MakeId)>();
+    Symbols_ExportSymbolGroups = Offsets::ResolveID<"Symbols::ExportSymbolGroups", decltype(Symbols_ExportSymbolGroups)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), reinterpret_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&Symbols_ExportSymbolGroups), reinterpret_cast<PVOID>(Symbols_ExportSymbolGroups_Hook));
     DetourTransactionCommit();
 }
 
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), static_cast<PVOID>(FactoryManager_RegisterType_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&StreamingDataSource_MakeId), static_cast<PVOID>(StreamingDataSource_MakeId_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&FactoryManager_RegisterType), reinterpret_cast<PVOID>(FactoryManager_RegisterType_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&Symbols_ExportSymbolGroups), reinterpret_cast<PVOID>(Symbols_ExportSymbolGroups_Hook));
     DetourTransactionCommit();
 }
