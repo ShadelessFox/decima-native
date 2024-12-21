@@ -11,6 +11,7 @@
 #include "Core/RTTI.h"
 #include "Core/GGUUID.h"
 #include "PCore/MemoryPool.h"
+#include "PCore/StreamingGraphResource.h"
 
 #include "Exporter/JsonExporter.h"
 #include "Exporter/IdaExporter.h"
@@ -145,6 +146,8 @@ static bool (*RTTIFactory_RegisterType)(void *, const RTTI &);
 
 static void (*RTTIFactory_RegisterAllTypes)();
 
+static void (*StreamingGraphResource_ResolveTypeHashes)(StreamingGraphResource &);
+
 static bool RTTIFactory_RegisterType_Hook(void *inFactory, const RTTI &inType) {
     if (RTTIFactory_RegisterType(inFactory, inType)) {
         ScanType(inType);
@@ -167,26 +170,34 @@ static void RTTIFactory_RegisterAllTypes_Hook() {
     exit(EXIT_SUCCESS);
 }
 
+static void StreamingGraphResource_ResolveTypeHashes_Hook(StreamingGraphResource &graph) {
+    StreamingGraphResource_ResolveTypeHashes(graph);
+}
+
 void Dumper::Attach() {
     // @formatter:off
     Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
     Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24");
+    Offsets::MapSignature("StreamingGraphResource::ResolveTypeHashes", "48 89 5C 24 20 56 57 41 54 41 56 41 57 48 83 EC 20 65 48 8B 04 25 58");
     // @formatter:on
 
     RTTIFactory_RegisterType = Offsets::ResolveID<"RTTIFactory::RegisterType", decltype(RTTIFactory_RegisterType)>();
     RTTIFactory_RegisterAllTypes = Offsets::ResolveID<"RTTIFactory::RegisterAllTypes", decltype(RTTIFactory_RegisterAllTypes)>();
+    StreamingGraphResource_ResolveTypeHashes = Offsets::ResolveID<"StreamingGraphResource::ResolveTypeHashes", decltype(StreamingGraphResource_ResolveTypeHashes)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
+    // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
+    // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&StreamingGraphResource_ResolveTypeHashes), static_cast<PVOID>(StreamingGraphResource_ResolveTypeHashes_Hook));
     DetourTransactionCommit();
 }
 
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
+    // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
+    // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&StreamingGraphResource_ResolveTypeHashes), static_cast<PVOID>(StreamingGraphResource_ResolveTypeHashes_Hook));
     DetourTransactionCommit();
 }

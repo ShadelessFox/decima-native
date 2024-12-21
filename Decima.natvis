@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="Array&lt;*&gt;">
+        <DisplayString>{{ size = {mCount} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">mCount</Item>
+            <Item Name="[capacity]" ExcludeView="simple">mCapacity</Item>
+            <ArrayItems>
+                <Size>mCount</Size>
+                <ValuePointer>mEntries</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+    <Type Name="String">
+        <DisplayString>{mData}</DisplayString>
+    </Type>
+    <Type Name="RTTI">
+        <DisplayString Condition="mKind == RTTIKind::Atom">{{ name = {((RTTIAtom *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Pointer">{{ name = {((RTTIPointer *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Container">{{ name = {((RTTIContainer *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Enum">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::EnumFlags">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::EnumBitSet">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Compound">{{ name = {((RTTICompound *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::POD">{{ name = {((RTTIPod *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+
+        <Expand>
+            <ExpandedItem Condition="mKind == RTTIKind::Atom">(RTTIAtom *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::Pointer">(RTTIPointer *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::Container">(RTTIContainer *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::Enum">(RTTIEnum *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::EnumFlags">(RTTIEnum *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::EnumBitSet">(RTTIEnum *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::Compound">(RTTICompound *) this</ExpandedItem>
+            <ExpandedItem Condition="mKind == RTTIKind::POD">(RTTIPod *) this</ExpandedItem>
+        </Expand>
+    </Type>
+</AutoVisualizer>
