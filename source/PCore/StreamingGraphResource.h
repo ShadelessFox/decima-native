@@ -29,25 +29,44 @@ class StreamingGraphResource : public RTTIRefObject {
 public:
     StreamingGraphResource() = delete;
 
-    bool IsPacked; // 32
-    Array<uint64_t> TypeHashes; // 40
-    Array<const RTTI *> TypePtrs; // 56
-    Array<uint8_t> TypeTableData; // 72
-    uint8_t Unk58[52]; // 88
-    uint64_t LinkTableID; // 144
-    uint32_t LinkTableSize; // 152
-    Array<StreamingDataSourceLocator> LocatorTable; // 160
-    Array<uint32_t> ArrayTable; // 176
-    Array<StreamingSourceSpan> SpanTable; // 192
-    uint8_t UnkD0[16]; // 208
-    Array<uint32_t> SubGroups; // 224
-    Array<GGUUID> RootUUIDs; // 240
-    Array<uint32_t> RootIndices; // 256
-    uint8_t Unk110[80]; // 272
-    Array<Array<uint32_t>> PackFileOffsets; // 352
-    Array<Array<uint32_t>> PackFileLengths; // 368
-    Array<StreamingObjectLocator> ObjectLocators; // 384
-    uint32_t PackFileUncompressedBlockSize; // 400
-    uint32_t PackFileMaxCompressedBlockSize; // 404
-    uint8_t Unk198[8]; // 408
+    bool IsPacked;
+    Array<uint64_t> TypeHashes;
+    Array<const RTTI *> TypePtrs;
+    Array<uint8_t> TypeTableData;
+    uint8_t Unk58[52];
+    uint64_t LinkTableID;
+    uint32_t LinkTableSize;
+    Array<StreamingDataSourceLocator> LocatorTable;
+    Array<uint32_t> ArrayTable;
+    Array<StreamingSourceSpan> SpanTable;
+    uint8_t UnkD0[16];
+    Array<uint32_t> SubGroups;
+    Array<GGUUID> RootUUIDs;
+    Array<uint32_t> RootIndices;
+    uint8_t Unk110[80];
+    Array<Array<uint32_t>> PackFileOffsets;
+    Array<Array<uint32_t>> PackFileLengths;
+    Array<StreamingObjectLocator> ObjectLocators;
+    uint32_t PackFileUncompressedBlockSize;
+    uint32_t PackFileMaxCompressedBlockSize;
+    uint8_t Unk198[8];
 };
+
+assert_size(StreamingGraphResource, 416);
+assert_offset(StreamingGraphResource, IsPacked, 32);
+assert_offset(StreamingGraphResource, TypeHashes, 40);
+assert_offset(StreamingGraphResource, TypePtrs, 56);
+assert_offset(StreamingGraphResource, TypeTableData, 72);
+assert_offset(StreamingGraphResource, LinkTableID, 144);
+assert_offset(StreamingGraphResource, LinkTableSize, 152);
+assert_offset(StreamingGraphResource, LocatorTable, 160);
+assert_offset(StreamingGraphResource, ArrayTable, 176);
+assert_offset(StreamingGraphResource, SpanTable, 192);
+assert_offset(StreamingGraphResource, SubGroups, 224);
+assert_offset(StreamingGraphResource, RootUUIDs, 240);
+assert_offset(StreamingGraphResource, RootIndices, 256);
+assert_offset(StreamingGraphResource, PackFileOffsets, 352);
+assert_offset(StreamingGraphResource, PackFileLengths, 368);
+assert_offset(StreamingGraphResource, ObjectLocators, 384);
+assert_offset(StreamingGraphResource, PackFileUncompressedBlockSize, 400);
+assert_offset(StreamingGraphResource, PackFileMaxCompressedBlockSize, 404);

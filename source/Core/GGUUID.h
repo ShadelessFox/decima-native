@@ -5,7 +5,7 @@
 #include <intsafe.h>
 #include <string>
 
-class GGUUID {
+class GGUUID final {
 public:
     [[nodiscard]] std::string ToString() const;
 

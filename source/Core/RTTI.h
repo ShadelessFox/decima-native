@@ -5,11 +5,11 @@
 #include <span>
 #include <string>
 
+#include "Util/Assert.h"
+
 class RTTIObject;
 
 class RTTIRefObject;
-
-#define ASSERT_SIZE(_Type, _Size) static_assert(sizeof(_Type) == (_Size), "sizeof(" # _Type ") == " # _Size)
 
 enum class RTTIKind : uint8_t {
     Atom,
@@ -62,7 +62,7 @@ struct RTTI {
 
 #pragma pack(pop)
 
-ASSERT_SIZE(RTTI, 0x6);
+assert_size(RTTI, 0x6);
 
 struct RTTIAtom : RTTI {
     uint16_t mSize;
@@ -84,7 +84,7 @@ struct RTTIAtom : RTTI {
     const RTTI *mRepresentationType;
 };
 
-ASSERT_SIZE(RTTIAtom, 0x80);
+assert_size(RTTIAtom, 0x80);
 
 struct RTTIValue {
     uint32_t mValue;
@@ -92,7 +92,7 @@ struct RTTIValue {
     std::array<const char*, 4> mAliases;
 };
 
-ASSERT_SIZE(RTTIValue, 0x30);
+assert_size(RTTIValue, 0x30);
 
 struct RTTIEnum : RTTI {
     uint8_t mSize;
@@ -105,14 +105,14 @@ struct RTTIEnum : RTTI {
     [[nodiscard]] auto Values() const { return std::span{mValues, mNumValues}; }
 };
 
-ASSERT_SIZE(RTTIEnum, 0x28);
+assert_size(RTTIEnum, 0x28);
 
 struct RTTIBase {
     const RTTICompound *mType;
     uint32_t mOffset;
 };
 
-ASSERT_SIZE(RTTIBase, 0x10);
+assert_size(RTTIBase, 0x10);
 
 struct RTTIAttr {
     const RTTI *mType;
@@ -125,21 +125,21 @@ struct RTTIAttr {
     const char *mMaxValue;
 };
 
-ASSERT_SIZE(RTTIAttr, 0x38);
+assert_size(RTTIAttr, 0x38);
 
 struct RTTIOrderedAttr : RTTIAttr {
     const RTTICompound *mParent;
     const char *mCategory;
 };
 
-ASSERT_SIZE(RTTIOrderedAttr, 0x48);
+assert_size(RTTIOrderedAttr, 0x48);
 
 struct RTTIMessageHandler {
     const RTTI *mMessage;
     const void *mHandler;
 };
 
-ASSERT_SIZE(RTTIMessageHandler, 0x10);
+assert_size(RTTIMessageHandler, 0x10);
 
 struct RTTIMessageOrderEntry {
     uint32_t mBefore;
@@ -147,7 +147,7 @@ struct RTTIMessageOrderEntry {
     const RTTI *mCompound;
 };
 
-ASSERT_SIZE(RTTIMessageOrderEntry, 0x18);
+assert_size(RTTIMessageOrderEntry, 0x18);
 
 struct RTTIFunction {
     char mReturnType;
@@ -156,7 +156,7 @@ struct RTTIFunction {
     const void* mFunction;
 };
 
-ASSERT_SIZE(RTTIFunction, 0x20);
+assert_size(RTTIFunction, 0x20);
 
 struct RTTICompound : RTTI {
     uint8_t mNumBases;
@@ -200,7 +200,7 @@ struct RTTICompound : RTTI {
     [[nodiscard]] auto MessageHandlers() const { return std::span{mMessageHandlers, mNumMessageHandlers}; }
 };
 
-ASSERT_SIZE(RTTICompound, 0xB0);
+assert_size(RTTICompound, 0xB0);
 
 struct RTTIPointer : RTTI {
     struct Data {
@@ -219,8 +219,8 @@ struct RTTIPointer : RTTI {
     const char *mTypeName;
 };
 
-ASSERT_SIZE(RTTIPointer, 0x20);
-ASSERT_SIZE(RTTIPointer::Data, 0x38);
+assert_size(RTTIPointer, 0x20);
+assert_size(RTTIPointer::Data, 0x38);
 
 struct RTTIContainer : RTTI {
     struct Data {
@@ -238,12 +238,12 @@ struct RTTIContainer : RTTI {
     const char *mTypeName;
 };
 
-ASSERT_SIZE(RTTIContainer, 0x20);
-ASSERT_SIZE(RTTIContainer::Data, 0x20);
+assert_size(RTTIContainer, 0x20);
+assert_size(RTTIContainer::Data, 0x20);
 
 struct RTTIPod : RTTI {
     uint32_t mSize;
     const char* mTypeName;
 };
 
-ASSERT_SIZE(RTTIPod, 0x18);
+assert_size(RTTIPod, 0x18);

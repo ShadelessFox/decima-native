@@ -8,3 +8,5 @@ public:
 
     virtual ~RTTIObject() = 0;
 };
+
+assert_size(RTTIObject, 8);

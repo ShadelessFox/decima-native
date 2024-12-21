@@ -11,5 +11,10 @@ public:
 
 public:
     uint32_t mRefCount;
+    uint32_t mPad0C;
     GGUUID mObjectUUID;
 };
+
+assert_size(RTTIRefObject, 32);
+assert_offset(RTTIRefObject, mRefCount, 8);
+assert_offset(RTTIRefObject, mObjectUUID, 16);
