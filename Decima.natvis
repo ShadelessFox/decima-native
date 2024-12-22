@@ -15,14 +15,14 @@
         <DisplayString>{mData}</DisplayString>
     </Type>
     <Type Name="RTTI">
-        <DisplayString Condition="mKind == RTTIKind::Atom">{{ name = {((RTTIAtom *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Pointer">{{ name = {((RTTIPointer *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Container">{{ name = {((RTTIContainer *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Enum">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::EnumFlags">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::EnumBitSet">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Compound">{{ name = {((RTTICompound *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::POD">{{ name = {((RTTIPod *) this)-&gt;mTypeName,sb}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Atom">{{ name = {((RTTIAtom *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Pointer">{{ name = {((RTTIPointer *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Container">{{ name = {((RTTIContainer *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Enum">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::EnumFlags">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::EnumBitSet">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Compound">{{ name = {((RTTICompound *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::POD">{{ name = {((RTTIPod *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
 
         <Expand>
             <ExpandedItem Condition="mKind == RTTIKind::Atom">(RTTIAtom *) this</ExpandedItem>
