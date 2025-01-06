@@ -27,12 +27,16 @@ enum RTTIFlags : uint8_t {
     FactoryManager_Registered = 0x4
 };
 
+struct RTTI;
 struct RTTIAtom;
 struct RTTICompound;
 struct RTTIEnum;
 struct RTTIPointer;
 struct RTTIContainer;
 struct RTTIPod;
+
+typedef RTTI *pRTTI;
+typedef const RTTI *pcRTTI;
 
 #pragma pack(push, 1)
 
@@ -89,7 +93,7 @@ assert_size(RTTIAtom, 0x80);
 struct RTTIValue {
     uint32_t mValue;
     const char *mName;
-    std::array<const char*, 4> mAliases;
+    std::array<const char *, 4> mAliases;
 };
 
 assert_size(RTTIValue, 0x30);
@@ -151,9 +155,9 @@ assert_size(RTTIMessageOrderEntry, 0x18);
 
 struct RTTIFunction {
     char mReturnType;
-    const char* mName;
-    const char* mArguments;
-    const void* mFunction;
+    const char *mName;
+    const char *mArguments;
+    const void *mFunction;
 };
 
 assert_size(RTTIFunction, 0x20);
@@ -209,8 +213,8 @@ struct RTTIPointer : RTTI {
         uint8_t mAlignment;
         const void *mConstructor;
         const void *mDestructor;
-        const void* mGetter;
-        const void* mSetter;
+        const void *mGetter;
+        const void *mSetter;
         const void *mCopier;
     };
 
@@ -243,7 +247,7 @@ assert_size(RTTIContainer::Data, 0x20);
 
 struct RTTIPod : RTTI {
     uint32_t mSize;
-    const char* mTypeName;
+    const char *mTypeName;
 };
 
 assert_size(RTTIPod, 0x18);

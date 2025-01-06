@@ -10,6 +10,7 @@
 
 #include "Core/RTTI.h"
 #include "Core/GGUUID.h"
+#include "Core/ExportedSymbolGroup.h"
 #include "PCore/MemoryPool.h"
 #include "PCore/StreamingGraphResource.h"
 
@@ -96,14 +97,14 @@ static void ScanMemoryForTypes() {
                 atom->mDestructor && !IsValidPtr(atom->mDestructor) ||
                 !IsValidPtr(atom->mTypeName) ||
                 !IsValidPtr(atom->mParentType)
-            ) {
+                ) {
                 continue;
             }
         } else if (auto enum_ = type->AsEnum(); enum_) {
             if (enum_->mSize == 0 ||
                 !IsValidPtr(enum_->mTypeName) ||
                 !IsValidPtr(enum_->mValues)
-            ) {
+                ) {
                 continue;
             }
         } else if (auto container = type->AsContainer(); container) {
@@ -112,7 +113,7 @@ static void ScanMemoryForTypes() {
                 !IsValidPtr(container->mContainerType->mTypeName) ||
                 container->mContainerType->mConstructor && !IsValidPtr(container->mContainerType->mConstructor) ||
                 container->mContainerType->mDestructor && !IsValidPtr(container->mContainerType->mDestructor)
-            ) {
+                ) {
                 continue;
             }
         } else if (auto pointer = type->AsPointer(); pointer) {
@@ -121,16 +122,15 @@ static void ScanMemoryForTypes() {
                 !IsValidPtr(pointer->mPointerType->mTypeName) ||
                 pointer->mPointerType->mConstructor && !IsValidPtr(pointer->mPointerType->mConstructor) ||
                 pointer->mPointerType->mDestructor && !IsValidPtr(pointer->mPointerType->mDestructor)
-            ) {
+                ) {
                 continue;
             }
         } else if (auto compound = type->AsCompound(); compound) {
             if (!IsValidPtr(compound->mTypeName) ||
                 compound->mNumBases && !IsValidPtr(compound->mBases) ||
                 compound->mNumAttrs && !IsValidPtr(compound->mAttrs) ||
-                // compound->mNumFunctions && !IsValidPtr(compound->mFunctions) ||
                 compound->mNumMessageHandlers && !IsValidPtr(compound->mMessageHandlers)
-            ) {
+                ) {
                 continue;
             }
         } else {
@@ -146,7 +146,7 @@ static bool (*RTTIFactory_RegisterType)(void *, const RTTI &);
 
 static void (*RTTIFactory_RegisterAllTypes)();
 
-static void (*StreamingGraphResource_ResolveTypeHashes)(StreamingGraphResource &);
+static void (*RTTIFactory_RegistersSymbols)(void *);
 
 static bool RTTIFactory_RegisterType_Hook(void *inFactory, const RTTI &inType) {
     if (RTTIFactory_RegisterType(inFactory, inType)) {
@@ -170,26 +170,40 @@ static void RTTIFactory_RegisterAllTypes_Hook() {
     exit(EXIT_SUCCESS);
 }
 
-static void StreamingGraphResource_ResolveTypeHashes_Hook(StreamingGraphResource &graph) {
-    StreamingGraphResource_ResolveTypeHashes(graph);
+static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
+    const auto &groups = *Offsets::ResolveID<"RTTIFactory::sExportedSymbolGroups", Array<ExportedSymbolGroup *> *>();
+    RTTIFactory_RegistersSymbols(inUnk);
 }
 
+
 void Dumper::Attach() {
+    auto [moduleBase, moduleEnd] = Offsets::GetModule();
+    auto offsetFromInstruction = [&](const char *Signature, uint32_t Add) {
+        auto addr = XUtil::FindPattern(moduleBase, moduleEnd - moduleBase, Signature);
+        if (!addr)
+            return addr;
+        auto relOffset = *reinterpret_cast<int32_t *>(addr + Add) + sizeof(int32_t);
+        return addr + Add + relOffset - moduleBase;
+    };
+
     // @formatter:off
+    Offsets::MapAddress("RTTIFactory::sExportedSymbolGroups", offsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
+
     Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
     Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24");
+    Offsets::MapSignature("RTTIFactory::RegisterSymbols", "48 89 4C 24 ? 41 56 48 83 EC 50 48 89 5C 24 ? 48 8D 0D ? ? ? ? 48 89");
     Offsets::MapSignature("StreamingGraphResource::ResolveTypeHashes", "48 89 5C 24 20 56 57 41 54 41 56 41 57 48 83 EC 20 65 48 8B 04 25 58");
     // @formatter:on
 
     RTTIFactory_RegisterType = Offsets::ResolveID<"RTTIFactory::RegisterType", decltype(RTTIFactory_RegisterType)>();
     RTTIFactory_RegisterAllTypes = Offsets::ResolveID<"RTTIFactory::RegisterAllTypes", decltype(RTTIFactory_RegisterAllTypes)>();
-    StreamingGraphResource_ResolveTypeHashes = Offsets::ResolveID<"StreamingGraphResource::ResolveTypeHashes", decltype(StreamingGraphResource_ResolveTypeHashes)>();
+    RTTIFactory_RegistersSymbols = Offsets::ResolveID<"RTTIFactory::RegisterSymbols", decltype(RTTIFactory_RegistersSymbols)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
     // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
     // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&StreamingGraphResource_ResolveTypeHashes), static_cast<PVOID>(StreamingGraphResource_ResolveTypeHashes_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourTransactionCommit();
 }
 
@@ -198,6 +212,6 @@ void Dumper::Detach() {
     DetourUpdateThread(GetCurrentThread());
     // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
     // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&StreamingGraphResource_ResolveTypeHashes), static_cast<PVOID>(StreamingGraphResource_ResolveTypeHashes_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourTransactionCommit();
 }

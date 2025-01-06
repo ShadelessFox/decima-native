@@ -12,7 +12,8 @@ public:
     void Export(const std::span<const RTTI *> &inTypes) override;
 
 private:
-    void Export(const RTTI &inType);
+    void ExportDeclarations(const RTTI &inType);
+    void ExportFunctions(const RTTI &inType);
 
     std::set<const RTTIContainer::Data *> mContainerTypes;
     std::set<const RTTIPointer::Data *> mPointerTypes;

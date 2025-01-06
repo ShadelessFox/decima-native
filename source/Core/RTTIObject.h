@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Util/Assert.h"
+
 struct RTTI;
 
 class RTTIObject {

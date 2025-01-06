@@ -3,6 +3,11 @@
 #include <format>
 #include <cassert>
 
+constexpr auto rebase = [](auto inPtr) {
+    constexpr uintptr_t Base = 0;
+    return reinterpret_cast<uintptr_t>(inPtr) - Base;
+};
+
 [[nodiscard]] static std::string IdaKindName(const RTTI& inType) {
     switch (inType.mKind) {
         case RTTIKind::Atom:
@@ -45,26 +50,43 @@
 }
 
 void IdaExporter::Export(const std::span<const RTTI *> &inTypes) {
-    fputs("#include <idc.idc>\n\nstatic main()\n{", mFile);
+    fputs(R"(#include <idc.idc>
+
+// Check if a function is unique by ensuring it's only referenced by [inType],
+// while also allowing references from the ".pdata" and ".rdata" segments.
+// Any other references make [inFunction] not unique.
+static is_unique_function(inType, inFunction) {
+    auto ref = get_first_dref_to(inFunction);
+    while (ref != BADADDR) {
+        auto seg = get_segm_name(ref);
+        if (ref != inType && seg != ".pdata" && seg != ".rdata")
+            return 0;
+        ref = get_next_dref_to(inFunction, ref);
+    }
+    return 1;
+}
+
+static main() {)", mFile);
 
     for (const auto type: inTypes) {
-        Export(*type);
+        ExportDeclarations(*type);
+    }
+
+    fputs("\n", mFile);
+
+    for (const auto type: inTypes) {
+        ExportFunctions(*type);
     }
 
     fputs("}", mFile);
 }
 
-void IdaExporter::Export(const RTTI &inType) {
-    constexpr auto rebase = [=](auto inPtr) {
-        constexpr uintptr_t Base = 0;
-        return reinterpret_cast<uintptr_t>(inPtr) - Base;
-    };
-
+void IdaExporter::ExportDeclarations(const RTTI &inType) {
     const auto type_name = IDATypeName(inType);
     const auto kind_name = IdaKindName(inType);
 
     fprintf(mFile, "\n\t// %s %s\n", inType.KindName().c_str(), inType.Name().c_str());
-    fprintf(mFile, "\tset_name(%#llx, \"RTTI_%s\");\n", rebase(&inType), type_name.c_str());
+    fprintf(mFile, "\tset_name(%#llx, \"RTTI_%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(&inType), type_name.c_str());
     fprintf(mFile, "\tapply_type(%#llx, \"%s\");\n", rebase(&inType), kind_name.c_str());
 
     if (const auto as_class = inType.AsCompound()) {
@@ -72,69 +94,106 @@ void IdaExporter::Export(const RTTI &inType) {
             const auto bases_count = as_class->mNumBases;
             fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(bases), bases_count * sizeof(RTTIBase));
             fprintf(mFile, "\tapply_type(%#llx, \"RTTIBase[%d]\");\n", rebase(bases), bases_count);
-            fprintf(mFile, "\tset_name(%#llx, \"%s::sBases\");\n", rebase(bases), type_name.c_str());
+            fprintf(mFile, "\tset_name(%#llx, \"%s::sBases\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(bases), type_name.c_str());
         }
 
         if (const auto attrs = as_class->mAttrs) {
             const auto attrs_count = as_class->mNumAttrs;
             fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(attrs), attrs_count * sizeof(RTTIAttr));
-            fprintf(mFile, "\tset_name(%#llx, \"%s::sAttrs\");\n", rebase(attrs), type_name.c_str());
             fprintf(mFile, "\tapply_type(%#llx, \"RTTIAttr[%d]\");\n", rebase(attrs), attrs_count);
+            fprintf(mFile, "\tset_name(%#llx, \"%s::sAttrs\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(attrs), type_name.c_str());
         }
 
-        if (const auto messages = as_class->mMessageHandlers) {
-            const auto messages_count = as_class->mNumMessageHandlers;
-            fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(messages), messages_count * sizeof(RTTIMessageHandler));
-            fprintf(mFile, "\tset_name(%#llx, \"%s::sMessageHandlers\");\n", rebase(messages), type_name.c_str());
-            fprintf(mFile, "\tapply_type(%#llx, \"RTTIMessageHandler[%d]\");\n", rebase(messages), messages_count);
-
-            for (const auto& message_handler : as_class->MessageHandlers()) {
-                const auto message_name = IDATypeName(*message_handler.mMessage);
-                fprintf(mFile, "\tset_name(%#llx, \"%s::On%s\");\n", rebase(message_handler.mHandler), type_name.c_str(), message_name.c_str() + 3);
-                fprintf(mFile, "\tapply_type(%#llx, \"__int64 __fastcall f(void* this, %s* ioMsg)\");\n", rebase(message_handler.mHandler), message_name.c_str());
-            }
+        if (const auto message_handlers = as_class->mMessageHandlers) {
+            const auto message_handlers_count = as_class->mNumMessageHandlers;
+            fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(message_handlers), message_handlers_count * sizeof(RTTIMessageHandler));
+            fprintf(mFile, "\tapply_type(%#llx, \"RTTIMessageHandler[%d]\");\n", rebase(message_handlers), message_handlers_count);
+            fprintf(mFile, "\tset_name(%#llx, \"%s::sMessageHandlers\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(message_handlers), type_name.c_str());
         }
 
         if (const auto message_order_entries = as_class->mMessageOrderEntries) {
             const auto message_order_entries_count = as_class->mNumMessageHandlers;
             fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(message_order_entries), message_order_entries_count * sizeof(RTTIMessageOrderEntry));
-            fprintf(mFile, "\tset_name(%#llx, \"%s::sInheritedMessageHandlers\");\n", rebase(message_order_entries), type_name.c_str());
-            fprintf(mFile, "\tapply_type(%#llx, \"RTTIInheritedMessageHandler[%d]\");\n", rebase(message_order_entries), message_order_entries_count);
-        }
-
-        // if (const auto functions = as_class->mFunctions) {
-        //     const auto functions_count = as_class->mNumFunctions;
-        //     fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(functions), functions_count * sizeof(RTTIFunction));
-        //     fprintf(mFile, "\tset_name(%#llx, \"%s::sFunctions\");\n", rebase(functions), type_name.c_str());
-        //     fprintf(mFile, "\tapply_type(%#llx, \"RTTIFunction[%d]\");\n", rebase(functions), functions_count);
-        //
-        //     for (const auto& function : as_class->Functions()) {
-        //         fprintf(mFile, "\tset_name(%#llx, \"%s::%s\");\n", rebase(function.mFunction), type_name.c_str(), function.mName);
-        //     }
-        // }
-
-        if (as_class->mGetExportedSymbols) {
-            fprintf(mFile, "\tset_name(%#llx, \"%s::GetExportedSymbols\");\n", rebase(as_class->mGetExportedSymbols), type_name.c_str());
+            fprintf(mFile, "\tapply_type(%#llx, \"RTTIMessageOrderEntry[%d]\");\n", rebase(message_order_entries), message_order_entries_count);
+            fprintf(mFile, "\tset_name(%#llx, \"%s::sMessageOrderEntries\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(message_order_entries), type_name.c_str());
         }
     }
 
     if (const auto as_enum = inType.AsEnum()) {
         if (const auto values = as_enum->mValues) {
             fprintf(mFile, "\tdel_items(%#llx, DELIT_SIMPLE, %zu);\n", rebase(values), as_enum->mNumValues * sizeof(RTTIValue));
-            fprintf(mFile, "\tset_name(%#llx, \"%s::sValues\");\n", rebase(values), type_name.c_str());
             fprintf(mFile, "\tapply_type(%#llx, \"RTTIValue[%d]\");\n", rebase(values), as_enum->mNumValues);
+            fprintf(mFile, "\tset_name(%#llx, \"%s::sValues\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(values), type_name.c_str());
         }
     }
 
     if (const auto as_container = inType.AsContainer(); as_container && !mContainerTypes.contains(as_container->mContainerType)) {
         mContainerTypes.emplace(as_container->mContainerType);
-        fprintf(mFile, "\tset_name(%#llx, \"%s::sInfo\");\n", rebase(as_container->mContainerType), type_name.c_str());
         fprintf(mFile, "\tapply_type(%#llx, \"RTTIContainer::Data\");\n", rebase(as_container->mContainerType));
+        fprintf(mFile, "\tset_name(%#llx, \"%s::sInfo\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(as_container->mContainerType), type_name.c_str());
     }
 
     if (const auto as_pointer = inType.AsPointer(); as_pointer && !mPointerTypes.contains(as_pointer->mPointerType)) {
         mPointerTypes.emplace(as_pointer->mPointerType);
-        fprintf(mFile, "\tset_name(%#llx, \"%s::sInfo\");\n", rebase(as_pointer->mPointerType), type_name.c_str());
         fprintf(mFile, "\tapply_type(%#llx, \"RTTIPointer::Data\");\n", rebase(as_pointer->mPointerType));
+        fprintf(mFile, "\tset_name(%#llx, \"%s::sInfo\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(as_pointer->mPointerType), type_name.c_str());
     }
 }
+
+void IdaExporter::ExportFunctions(const RTTI &inType) {
+    const auto type_name = IDATypeName(inType);
+
+    if (const auto as_class = inType.AsCompound()) {
+        if (as_class->mConstructor) {
+            const auto pointer = rebase(as_class->mConstructor);
+            fprintf(mFile, "\tif (is_unique_function(%#llx, %#llx)) {\n", rebase(&inType), pointer);
+            fprintf(mFile, "\t\tapply_type(%#llx, \"void* __fastcall f(RTTI* inType, void* inObject)\");\n", pointer);
+            fprintf(mFile, "\t\tset_name(%#llx, \"%s::Constructor\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", pointer, type_name.c_str());
+            fprintf(mFile, "\t}\n");
+        }
+
+        if (as_class->mDestructor) {
+            const auto pointer = rebase(as_class->mDestructor);
+            fprintf(mFile, "\tif (is_unique_function(%#llx, %#llx)) {\n", rebase(&inType), pointer);
+            fprintf(mFile, "\t\tapply_type(%#llx, \"void __fastcall f(RTTI* inType, void* inObject)\");\n", pointer);
+            fprintf(mFile, "\t\tset_name(%#llx, \"%s::Destructor\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", pointer, type_name.c_str());
+            fprintf(mFile, "\t}\n");
+        }
+
+        if (as_class->mGetExportedSymbols) {
+            const auto pointer = rebase(as_class->mGetExportedSymbols);
+            fprintf(mFile, "\tif (is_unique_function(%#llx, %#llx)) {\n", rebase(&inType), pointer);
+            fprintf(mFile, "\t\tapply_type(%#llx, \"const RTTI* __fastcall f()\");\n", pointer);
+            fprintf(mFile, "\t\tset_name(%#llx, \"%s::GetExportedSymbols\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", pointer, type_name.c_str());
+            fprintf(mFile, "\t}\n");
+        }
+
+        for (const auto &attr: as_class->Attrs()) {
+            if (attr.mType == nullptr)
+                continue;
+            if (attr.mGetter) {
+                fprintf(mFile, "\tif (is_unique_function(%#llx, %#llx)) {\n", rebase(as_class->mAttrs), rebase(attr.mGetter));
+                fprintf(mFile, "\t\tapply_type(%#llx, \"void* __fastcall f(void* this)\");\n", rebase(attr.mGetter));
+                fprintf(mFile, "\t\tset_name(%#llx, \"%s::Get%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(attr.mGetter), type_name.c_str(), attr.mName);
+                fprintf(mFile, "\t}\n");
+            }
+            if (attr.mSetter) {
+                fprintf(mFile, "\tif (is_unique_function(%#llx, %#llx)) {\n", rebase(as_class->mAttrs), rebase(attr.mSetter));
+                fprintf(mFile, "\t\tapply_type(%#llx, \"void __fastcall f(void* this, void* inValue)\");\n", rebase(attr.mSetter));
+                fprintf(mFile, "\t\tset_name(%#llx, \"%s::Set%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(attr.mSetter), type_name.c_str(), attr.mName);
+                fprintf(mFile, "\t}\n");
+            }
+        }
+
+        for (const auto& message_handler : as_class->MessageHandlers()) {
+            const auto msg_name = IDATypeName(*message_handler.mMessage);
+            const auto msg_handler = rebase(message_handler.mHandler);
+            fprintf(mFile, "\tif (is_unique_function(%#llx, %#llx)) {\n", rebase(as_class->mMessageHandlers), msg_handler);
+            fprintf(mFile, "\t\tapply_type(%#llx, \"__int64 __fastcall f(void* this, %s* ioMsg)\");\n", msg_handler, msg_name.c_str());
+            fprintf(mFile, "\t\tset_name(%#llx, \"%s::On%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", msg_handler, type_name.c_str(), msg_name.c_str() + 3);
+            fprintf(mFile, "\t}\n");
+        }
+    }
+}
+
+
