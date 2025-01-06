@@ -2,7 +2,6 @@
 
 #include <Util/Offsets.h>
 #include <Core/ExportedSymbolGroup.h>
-#include <PCore/Array.h>
 
 #include <format>
 #include <cassert>
@@ -84,8 +83,7 @@ static main() {)", mFile);
 
     fprintf(mFile, "\t// Exported symbols\n");
 
-    const auto& groups = *Offsets::ResolveID<"RTTIFactory::sExportedSymbolGroups", Array<ExportedSymbolGroup *> *>();
-    for (const auto& group : groups) {
+    for (const auto& group : ExportedSymbols::Get().mGroups) {
         ExportSymbols(*group);
     }
 
@@ -215,9 +213,9 @@ void IdaExporter::ExportSymbols(const ExportedSymbolGroup &inGroup) {
             if (!language.mName)
                 break;
             if (symbol.mNamespace) {
-                fprintf(mFile, "\tset_name(%#llx, \"%s::%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(language.mHandle), symbol.mNamespace, language.mName);
+                fprintf(mFile, "\tset_name(%#llx, \"%s::%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(language.mAddress), symbol.mNamespace, language.mName);
             } else {
-                fprintf(mFile, "\tset_name(%#llx, \"%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(language.mHandle), language.mName);
+                fprintf(mFile, "\tset_name(%#llx, \"%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(language.mAddress), language.mName);
             }
         }
     }

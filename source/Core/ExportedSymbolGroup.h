@@ -3,6 +3,8 @@
 #include "Core/RTTI.h"
 #include "Core/RTTIObject.h"
 #include "PCore/Array.h"
+#include "PCore/HashMap.h"
+#include "PCore/String.h"
 #include "Util/Typedefs.h"
 
 struct ExportedSymbol {
@@ -15,8 +17,8 @@ struct ExportedSymbol {
         Function = 5,
         Variable = 6,
         Container = 7,
-        Unk8 = 8,
-        Unk9 = 9,
+        Reference = 8,
+        Pointer = 9,
         Unk10 = 10
     };
 
@@ -29,7 +31,7 @@ struct ExportedSymbol {
     };
 
     struct Language {
-        pVoid mHandle;
+        pVoid mAddress;
         pcTChar mName;
         pVoid mUnk10;
         pVoid mUnk18;
@@ -66,3 +68,15 @@ public:
 };
 
 assert_size(ExportedSymbolGroup, 0x38);
+
+struct ExportedSymbols {
+    Array<ExportedSymbolGroup *> mGroups;
+    Array<pcRTTI> mDependenciesUnk1;
+    Array<pcRTTI> mDependenciesUnk2;
+    HashMap<uint32_t, ExportedSymbol *> mSymbols;
+    HashMap<ExportedSymbol *, String> mSymbolNames;
+
+    static const ExportedSymbols& Get() {
+        return *Offsets::ResolveID<"RTTIFactory::sExportedSymbols", ExportedSymbols*>();
+    }
+};

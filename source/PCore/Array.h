@@ -60,8 +60,6 @@ public:
 
     Array(const Array &) = delete;
 
-    Array(Array &&) = default;
-
     T &operator[](size_t index) { return mEntries[index]; }
 
     const T &operator[](size_t index) const { return mEntries[index]; }

@@ -186,7 +186,7 @@ void Dumper::Attach() {
     };
 
     // @formatter:off
-    Offsets::MapAddress("RTTIFactory::sExportedSymbolGroups", offsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
+    Offsets::MapAddress("RTTIFactory::sExportedSymbols", offsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
 
     Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
     Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24");

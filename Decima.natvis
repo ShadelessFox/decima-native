@@ -3,16 +3,49 @@
     <Type Name="Array&lt;*&gt;">
         <DisplayString>{{ size = {mCount} }}</DisplayString>
         <Expand>
-            <Item Name="[size]" ExcludeView="simple">mCount</Item>
-            <Item Name="[capacity]" ExcludeView="simple">mCapacity</Item>
+            <Item Name="[size]">mCount</Item>
+            <Item Name="[capacity]">mCapacity</Item>
             <ArrayItems>
                 <Size>mCount</Size>
                 <ValuePointer>mEntries</ValuePointer>
             </ArrayItems>
         </Expand>
     </Type>
+    <Type Name="HashMap&lt;*&gt;::Entry">
+        <DisplayString>{mValue.first}</DisplayString>
+        <Expand>
+            <Item Name="[hash]">mHash</Item>
+            <Item Name="[key]">mValue.second</Item>
+            <Item Name="[value]">mValue.first</Item>
+        </Expand>
+    </Type>
+    <Type Name="HashMap&lt;*&gt;">
+        <DisplayString>{{ size = {mCount} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]">mCount</Item>
+            <Item Name="[capacity]">mCapacity</Item>
+            <CustomListItems>
+                <Variable Name="i" InitialValue="0"/>
+                <Variable Name="n" InitialValue="mCount"/>
+                <Size>mCount</Size>
+                <Loop>
+                    <Break Condition="n == 0"/>
+                    <If Condition="mEntries[i].mHash != 0">
+                        <!-- Bucket is populated -->
+                        <Exec>n--</Exec>
+                        <Item Name="[{mEntries[i].mValue.second}]">mEntries[i]</Item>
+                    </If>
+                    <Exec>i++</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
     <Type Name="String">
         <DisplayString>{mData}</DisplayString>
+        <Expand>
+            <Item Name="[len]">buffer().mLength</Item>
+            <Item Name="[crc]">buffer().mCrc</Item>
+        </Expand>
     </Type>
     <Type Name="RTTI">
         <DisplayString Condition="mKind == RTTIKind::Atom">{{ name = {((RTTIAtom *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>

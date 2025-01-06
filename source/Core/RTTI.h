@@ -133,7 +133,7 @@ assert_size(RTTIAttr, 0x38);
 
 struct RTTIOrderedAttr : RTTIAttr {
     const RTTICompound *mParent;
-    const char *mCategory;
+    const char *mGroup;
 };
 
 assert_size(RTTIOrderedAttr, 0x48);
