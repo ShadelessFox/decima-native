@@ -1,5 +1,9 @@
 #include "IdaExporter.h"
 
+#include <Util/Offsets.h>
+#include <Core/ExportedSymbolGroup.h>
+#include <PCore/Array.h>
+
 #include <format>
 #include <cassert>
 
@@ -76,6 +80,13 @@ static main() {)", mFile);
 
     for (const auto type: inTypes) {
         ExportFunctions(*type);
+    }
+
+    fprintf(mFile, "\t// Exported symbols\n");
+
+    const auto& groups = *Offsets::ResolveID<"RTTIFactory::sExportedSymbolGroups", Array<ExportedSymbolGroup *> *>();
+    for (const auto& group : groups) {
+        ExportSymbols(*group);
     }
 
     fputs("}", mFile);
@@ -192,6 +203,22 @@ void IdaExporter::ExportFunctions(const RTTI &inType) {
             fprintf(mFile, "\t\tapply_type(%#llx, \"__int64 __fastcall f(void* this, %s* ioMsg)\");\n", msg_handler, msg_name.c_str());
             fprintf(mFile, "\t\tset_name(%#llx, \"%s::On%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", msg_handler, type_name.c_str(), msg_name.c_str() + 3);
             fprintf(mFile, "\t}\n");
+        }
+    }
+}
+
+void IdaExporter::ExportSymbols(const ExportedSymbolGroup &inGroup) {
+    for (const auto &symbol: inGroup.mSymbols) {
+        if (symbol.mKind != ExportedSymbol::Kind::Variable && symbol.mKind != ExportedSymbol::Kind::Function)
+            continue;
+        for (const auto &language: symbol.mLanguage) {
+            if (!language.mName)
+                break;
+            if (symbol.mNamespace) {
+                fprintf(mFile, "\tset_name(%#llx, \"%s::%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(language.mHandle), symbol.mNamespace, language.mName);
+            } else {
+                fprintf(mFile, "\tset_name(%#llx, \"%s\", SN_FORCE|SN_DELTAIL|SN_NOWARN);\n", rebase(language.mHandle), language.mName);
+            }
         }
     }
 }

@@ -15,19 +15,21 @@ struct ExportedSymbol {
         Function = 5,
         Variable = 6,
         Container = 7,
-        SourceFile = 8
+        Unk8 = 8,
+        Unk9 = 9,
+        Unk10 = 10
     };
 
     struct Signature {
         pcTChar mName;
-        pcTChar mModifier;
+        pcTChar mModifiers;
         pRTTI mType;
         pVoid mUnk18;
         uint8_t mUnk20;
     };
 
     struct Language {
-        pVoid mFunction;
+        pVoid mHandle;
         pcTChar mName;
         pVoid mUnk10;
         pVoid mUnk18;
@@ -37,12 +39,12 @@ struct ExportedSymbol {
     };
 
     Kind mKind;
-    pVoid mUnk08;
+    pcRTTI mType;
     pcTChar mNamespace;
     pcTChar mName;
     pVoid mUnk20;
     uint8_t mUnk28;
-    std::array<Language, 2> mLanguage;
+    Language mLanguage[2];
 };
 
 assert_size(ExportedSymbol, 0xB0);

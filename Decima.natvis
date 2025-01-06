@@ -35,4 +35,7 @@
             <ExpandedItem Condition="mKind == RTTIKind::POD">(RTTIPod *) this</ExpandedItem>
         </Expand>
     </Type>
+    <Type Name="ExportedSymbol">
+        <DisplayString>{{ kind = {mKind}, namespace = {mNamespace}, name = {mName} }}</DisplayString>
+    </Type>
 </AutoVisualizer>

@@ -161,6 +161,10 @@ static void RTTIFactory_RegisterAllTypes_Hook() {
 
     puts("Scanning memory...\n");
     ScanMemoryForTypes();
+}
+
+static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
+    RTTIFactory_RegistersSymbols(inUnk);
 
     puts("Exporting types...");
     std::vector<const RTTI *> types{AllTypes.cbegin(), AllTypes.cend()};
@@ -168,11 +172,6 @@ static void RTTIFactory_RegisterAllTypes_Hook() {
     IdaExporter("dump/hfw").Export(types);
 
     exit(EXIT_SUCCESS);
-}
-
-static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
-    const auto &groups = *Offsets::ResolveID<"RTTIFactory::sExportedSymbolGroups", Array<ExportedSymbolGroup *> *>();
-    RTTIFactory_RegistersSymbols(inUnk);
 }
 
 
@@ -201,8 +200,8 @@ void Dumper::Attach() {
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
-    // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
     DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourTransactionCommit();
 }
@@ -210,8 +209,8 @@ void Dumper::Attach() {
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
-    // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterType), static_cast<PVOID>(RTTIFactory_RegisterType_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegisterAllTypes), static_cast<PVOID>(RTTIFactory_RegisterAllTypes_Hook));
     DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourTransactionCommit();
 }
