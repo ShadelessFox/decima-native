@@ -71,4 +71,7 @@
     <Type Name="ExportedSymbol">
         <DisplayString>{{ kind = {mKind}, namespace = {mNamespace}, name = {mName} }}</DisplayString>
     </Type>
+    <Type Name="ExportedSymbol::Signature">
+        <DisplayString>{mName,sb}{mModifiers,sb}</DisplayString>
+    </Type>
 </AutoVisualizer>
