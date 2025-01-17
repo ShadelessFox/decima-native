@@ -1,5 +1,7 @@
 #pragma once
 
+#include <format>
+
 #include "Util/Offsets.h"
 #include "MemoryPool.h"
 
@@ -82,3 +84,15 @@ private:
 
     const char *mData{nullptr};
 };
+
+template<>
+struct std::formatter<String> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        return ctx.begin();
+    }
+
+    auto format(const String& string, std::format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}", string.c_str());
+    }
+};
+

@@ -1,7 +1,7 @@
 #include "IdaExporter.h"
 
-#include <Util/Offsets.h>
-#include <Core/ExportedSymbolGroup.h>
+#include "Util/Offsets.h"
+#include "Decima/Core/ExportedSymbolGroup.h"
 
 #include <format>
 #include <cassert>
@@ -37,7 +37,7 @@ constexpr auto rebase = [](auto inPtr) {
             return reinterpret_cast<const RTTIAtom &>(inType).mTypeName;
         case RTTIKind::Pointer:
         case RTTIKind::Container: {
-            const auto container = reinterpret_cast<const RTTIContainer &>(inType);
+            const auto& container = reinterpret_cast<const RTTIContainer &>(inType);
             return std::format("{}_{}", container.mContainerType->mTypeName, IDATypeName(*container.mItemType));
         }
         case RTTIKind::Enum:
@@ -88,6 +88,12 @@ static main() {
     const auto& symbols = ExportedSymbols::Get();
     for (const auto& group : symbols.mGroups) {
         ExportSymbols(*group);
+    }
+
+    fprintf(mFile, "\t// Symbol Hashes\n");
+
+    for (const auto& [symbol, hash] : symbols.mAllSymbols) {
+        fprintf(mFile, "\t // %s hash=%#08x address=%#llx\n", symbol->mName, hash, rebase(symbol->mLanguage[0].mAddress));
     }
 
     fputs("}", mFile);

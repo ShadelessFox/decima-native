@@ -4,7 +4,7 @@
 #include <span>
 #include <cstdio>
 
-#include "Core/RTTI.h"
+#include "Decima/Core/RTTI.h"
 
 class Exporter {
 public:

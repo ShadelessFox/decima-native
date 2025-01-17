@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Core/RTTIRefObject.h"
-#include "PCore/Array.h"
+#include "Decima/Core/RTTIRefObject.h"
+#include "Decima/PCore/Array.h"
 
 class StreamingDataSourceLocator final {
 public:

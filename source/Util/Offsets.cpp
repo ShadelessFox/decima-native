@@ -1,6 +1,8 @@
 #include <Windows.h>
+
 #include <unordered_map>
 #include <stdexcept>
+#include <print>
 
 #include "Offsets.h"
 #include "XUtil.h"
@@ -54,6 +56,8 @@ namespace Offsets {
 
         if (found != OffsetMapping.end())
             throw std::runtime_error("Trying to map an address that was previously mapped");
+
+        std::print("Mapped {} to address {}\n", ID, reinterpret_cast<void *>(Offset));
 
         OffsetMapping.emplace(hash, Offset);
     }

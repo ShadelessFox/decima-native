@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Core/RTTI.h"
-#include "Core/RTTIObject.h"
-#include "PCore/Array.h"
-#include "PCore/HashMap.h"
-#include "PCore/String.h"
+#include "RTTI.h"
+#include "RTTIObject.h"
+#include "Decima/PCore/Array.h"
+#include "Decima/PCore/HashMap.h"
+#include "Decima/PCore/String.h"
 #include "Util/Typedefs.h"
 
 struct ExportedSymbol {
@@ -73,10 +73,10 @@ struct ExportedSymbols {
     Array<ExportedSymbolGroup *> mGroups;
     Array<pcRTTI> mDependenciesUnk1;
     Array<pcRTTI> mDependenciesUnk2;
-    HashMap<uint32_t, ExportedSymbol *> mSymbols;
-    HashMap<ExportedSymbol *, String> mSymbolNames;
+    HashMap<ExportedSymbol *, uint32_t> mAllSymbols;
+    HashMap<String, ExportedSymbol *> mTypeSymbols;
 
-    static const ExportedSymbols& Get() {
-        return *Offsets::ResolveID<"RTTIFactory::sExportedSymbols", ExportedSymbols*>();
+    static const ExportedSymbols &Get() {
+        return *Offsets::ResolveID<"RTTIFactory::sExportedSymbols", ExportedSymbols *>();
     }
 };

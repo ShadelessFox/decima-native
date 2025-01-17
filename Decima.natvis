@@ -1,43 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="Ref&lt;*&gt;">
+        <DisplayString>{mPtr}</DisplayString>
+        <Expand>
+            <ExpandedItem Condition="mPtr">mPtr</ExpandedItem>
+        </Expand>
+    </Type>
+    <Type Name="RTTIObject">
+        <AlternativeType Name="RTTIRefObject"/>
+        <DisplayString>{GetRTTI()}</DisplayString>
+    </Type>
+    <Type Name="UUIDRef&lt;*&gt;">
+        <DisplayString>{ObjectUUID}</DisplayString>
+    </Type>
     <Type Name="Array&lt;*&gt;">
         <DisplayString>{{ size = {mCount} }}</DisplayString>
         <Expand>
-            <Item Name="[size]">mCount</Item>
-            <Item Name="[capacity]">mCapacity</Item>
             <ArrayItems>
                 <Size>mCount</Size>
                 <ValuePointer>mEntries</ValuePointer>
             </ArrayItems>
         </Expand>
     </Type>
-    <Type Name="HashMap&lt;*&gt;::Entry">
-        <DisplayString>{mValue.first}</DisplayString>
+    <Type Name="HashSet&lt;*&gt;">
+        <DisplayString>{{ size = {mSize} }}</DisplayString>
         <Expand>
-            <Item Name="[hash]">mHash</Item>
-            <Item Name="[key]">mValue.second</Item>
-            <Item Name="[value]">mValue.first</Item>
-        </Expand>
-    </Type>
-    <Type Name="HashMap&lt;*&gt;">
-        <DisplayString>{{ size = {mCount} }}</DisplayString>
-        <Expand>
-            <Item Name="[size]">mCount</Item>
-            <Item Name="[capacity]">mCapacity</Item>
             <CustomListItems>
                 <Variable Name="i" InitialValue="0"/>
-                <Variable Name="n" InitialValue="mCount"/>
-                <Size>mCount</Size>
+                <Variable Name="n" InitialValue="mSize"/>
+                <Size>mSize</Size>
                 <Loop>
                     <Break Condition="n == 0"/>
                     <If Condition="mEntries[i].mHash != 0">
                         <!-- Bucket is populated -->
                         <Exec>n--</Exec>
-                        <Item Name="[{mEntries[i].mValue.second}]">mEntries[i]</Item>
+                        <Item>mEntries[i].mValue</Item>
                     </If>
                     <Exec>i++</Exec>
                 </Loop>
             </CustomListItems>
+        </Expand>
+    </Type>
+    <Type Name="HashMap&lt;*&gt;">
+        <DisplayString>{{ size = {mSize} }}</DisplayString>
+        <Expand>
+            <CustomListItems>
+                <Variable Name="i" InitialValue="0"/>
+                <Variable Name="n" InitialValue="mSize"/>
+                <Size>mSize</Size>
+                <Loop>
+                    <Break Condition="n == 0"/>
+                    <If Condition="mEntries[i].mHash != 0">
+                        <!-- Bucket is populated -->
+                        <Exec>n--</Exec>
+                        <Item Name="{mEntries[i].mValue.first}">mEntries[i]</Item>
+                    </If>
+                    <Exec>i++</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+    <Type Name="HashMap&lt;*&gt;::Entry">
+        <DisplayString>{mValue.second}</DisplayString>
+        <Expand>
+            <Item Name="[key]">mValue.first</Item>
+            <Item Name="[value]">mValue.second</Item>
         </Expand>
     </Type>
     <Type Name="String">
@@ -48,14 +75,14 @@
         </Expand>
     </Type>
     <Type Name="RTTI">
-        <DisplayString Condition="mKind == RTTIKind::Atom">{{ name = {((RTTIAtom *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Pointer">{{ name = {((RTTIPointer *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Container">{{ name = {((RTTIContainer *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Enum">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::EnumFlags">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::EnumBitSet">{{ name = {((RTTIEnum *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::Compound">{{ name = {((RTTICompound *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
-        <DisplayString Condition="mKind == RTTIKind::POD">{{ name = {((RTTIPod *) this)-&gt;mTypeName,s}, kind = {this-&gt;mKind,en} }}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Atom">{((RTTIAtom *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Pointer">{((RTTIPointer *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Container">{((RTTIContainer *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Enum">{((RTTIEnum *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::EnumFlags">{((RTTIEnum *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::EnumBitSet">{((RTTIEnum *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::Compound">{((RTTICompound *) this)-&gt;mTypeName,s}</DisplayString>
+        <DisplayString Condition="mKind == RTTIKind::POD">{((RTTIPod *) this)-&gt;mTypeName,s}</DisplayString>
 
         <Expand>
             <ExpandedItem Condition="mKind == RTTIKind::Atom">(RTTIAtom *) this</ExpandedItem>
@@ -68,10 +95,30 @@
             <ExpandedItem Condition="mKind == RTTIKind::POD">(RTTIPod *) this</ExpandedItem>
         </Expand>
     </Type>
+    <Type Name="RTTIPointer::Data">
+        <DisplayString>{mTypeName,s}</DisplayString>
+    </Type>
+    <Type Name="RTTIContainer::Data">
+        <DisplayString>{mTypeName,s}</DisplayString>
+    </Type>
     <Type Name="ExportedSymbol">
-        <DisplayString>{{ kind = {mKind}, namespace = {mNamespace}, name = {mName} }}</DisplayString>
+        <DisplayString>{{ kind = {mKind}, namespace = {mNamespace,s}, name = {mName,s} }}</DisplayString>
     </Type>
     <Type Name="ExportedSymbol::Signature">
         <DisplayString>{mName,sb}{mModifiers,sb}</DisplayString>
+    </Type>
+    <Type Name="ProgramParameterBindings">
+        <Expand>
+            <Item Name="[count]">Parameters->Parameters.mCount</Item>
+            <CustomListItems>
+                <Variable Name="i" InitialValue="0"/>
+                <Size>Parameters->Parameters.mCount</Size>
+                <Loop>
+                    <Break Condition="i == Parameters->Parameters.mCount"/>
+                    <Item Name="{Parameters->Parameters[i].Name,s}: {Parameters->Parameters[i].Type.TypePtr} ({(RTTI *)Parameters->Parameters[i].ParameterType})">(void *)(((uintptr_t) Values) + Parameters->Parameters[i].ParameterOffset)</Item>
+                    <Exec>i++</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
     </Type>
 </AutoVisualizer>

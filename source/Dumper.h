@@ -1,7 +1,7 @@
 #pragma once
 
-class Dumper {
-public:
-    static void Attach();
-    static void Detach();
+namespace Dumper {
+    void Attach();
+    void Detach();
+    void Dump();
 };

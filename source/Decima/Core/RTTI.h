@@ -45,6 +45,9 @@ struct RTTI {
     RTTIKind mKind;
     RTTIFlags mFactoryFlags;
 
+    RTTI(const RTTI &) = delete;
+    RTTI(RTTI&&) = delete;
+
     [[nodiscard]] std::string BaseName() const;
 
     [[nodiscard]] std::string Name() const;

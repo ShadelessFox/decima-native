@@ -1,6 +1,6 @@
 #include "GGUUID.h"
 
-#include "PCore/String.h"
+#include "Decima/PCore/String.h"
 
 std::string GGUUID::ToString() const {
     String string;
