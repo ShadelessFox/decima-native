@@ -109,8 +109,8 @@ assert_size(StateObjectInstance, 0x28);
 
 class GraphProgramInstance : public ProgramInstance, public WeakPtrRTTITarget {
 public:
-    Ref<NodeConstantsResource> Constants;
-    ProgramParameterBindings ConstantParameterBindings;
+    Ref<NodeConstantsResource> ExposedData;
+    ProgramParameterBindings ExposedDataBindings;
 
     Array<Ref<RTTIRefObject>> ExposedObjects;
     Array<UUIDRef<RTTIRefObject>> UUIDRefs;
@@ -129,8 +129,8 @@ public:
 };
 
 assert_size(GraphProgramInstance, 0x110);
-assert_offset(GraphProgramInstance, Constants, 0x68);
-assert_offset(GraphProgramInstance, ConstantParameterBindings, 0x70);
+assert_offset(GraphProgramInstance, ExposedData, 0x68);
+assert_offset(GraphProgramInstance, ExposedDataBindings, 0x70);
 assert_offset(GraphProgramInstance, ExposedObjects, 0x88);
 assert_offset(GraphProgramInstance, UUIDRefs, 0x98);
 assert_offset(GraphProgramInstance, StateObjects, 0xA8);

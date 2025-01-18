@@ -13,6 +13,7 @@ class DynamicLibrary : public Resource, public VirtualRTTIRegistrationListener {
 public:
     String Filename;
     Array<uint8_t> Data;
+    HMODULE Module;
 };
 
 // assert_size(DynamicLibrary, 0x88);

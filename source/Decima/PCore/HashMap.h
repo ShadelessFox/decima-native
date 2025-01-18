@@ -75,13 +75,13 @@ public:
     using iterator = HashContainerIterator<Entry, false>;
     using const_iterator = HashContainerIterator<Entry, true>;
 
-    iterator begin() { return iterator(mEntries, &mEntries[mCapacity]); }
+    [[nodiscard]] iterator begin() { return iterator(mEntries, &mEntries[mCapacity]); }
 
-    iterator end() { return iterator(&mEntries[mCapacity], &mEntries[mCapacity]); }
+    [[nodiscard]] iterator end() { return iterator(&mEntries[mCapacity], &mEntries[mCapacity]); }
 
-    const_iterator begin() const { return const_iterator(mEntries, &mEntries[mCapacity]); }
+    [[nodiscard]] const_iterator begin() const { return const_iterator(mEntries, &mEntries[mCapacity]); }
 
-    const_iterator end() const { return const_iterator(&mEntries[mCapacity], &mEntries[mCapacity]); }
+    [[nodiscard]] const_iterator end() const { return const_iterator(&mEntries[mCapacity], &mEntries[mCapacity]); }
 
     [[nodiscard]] size_type size() const { return mSize; }
 

@@ -162,22 +162,18 @@ static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
     // Dumper::Dump();
 }
 
-// EntryPoint_StartLoadingHintTimer_bbe3b13e0e9ff92911c5be9faf9517d5_0_Evaluate
 static void GraphProgramInstance_Evaluate_Hook(GraphProgramInstance *program) {
     auto &entryPoint = program->Program->EntryPoints[0];
-    std::print("Evaluating {}\n", entryPoint.EntryPoint);
 
-    auto& inputBindings = program->InputParameterBindings[0];
-    auto& outputBindings = program->OutputParameterBindings[0];
-    auto& stateBindings = program->StateParameterBindings;
-    auto& constantBindings = program->ConstantParameterBindings;
+    if (entryPoint.EntryPoint != "EntryPoint_Main_Theme_Music_Graph_4d0418bc2f5e06ab3ca104db27ab2d1c_0_Evaluate")
+        std::print("Evaluating {}\n", entryPoint.EntryPoint);
 
-    if (entryPoint.EntryPoint == "EntryPoint_OnCancelClosePhotomode_56e7367c190a7d49f166b2437e5831ce_0_Evaluate") {
-    // if (program->StateParameterBindings.Values) {
-        GraphProgramInstance_Evaluate(program);
-    } else {
-        GraphProgramInstance_Evaluate(program);
-    }
+    auto &inputBindings = program->InputParameterBindings[0];
+    auto &outputBindings = program->OutputParameterBindings[0];
+    auto &stateBindings = program->StateParameterBindings;
+    auto &dataBindings = program->ExposedDataBindings;
+
+    GraphProgramInstance_Evaluate(program);
 }
 
 void Dumper::Attach() {
