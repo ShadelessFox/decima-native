@@ -80,4 +80,12 @@ namespace Offsets {
         return OffsetMapping.at(IDHash);
     }
 
+    uintptr_t OffsetFromInstruction(const char *Signature, uint32_t Add) {
+        auto [moduleBase, moduleEnd] = GetModule();
+        auto addr = XUtil::FindPattern(moduleBase, moduleEnd - moduleBase, Signature);
+        if (!addr)
+            return addr;
+        auto relOffset = *reinterpret_cast<int32_t *>(addr + Add) + sizeof(int32_t);
+        return addr + Add + relOffset - moduleBase;
+    }
 }

@@ -99,14 +99,14 @@ static void ScanMemoryForTypes() {
                 atom->mDestructor && !IsValidPtr(atom->mDestructor) ||
                 !IsValidPtr(atom->mTypeName) ||
                 !IsValidPtr(atom->mParentType)
-                ) {
+            ) {
                 continue;
             }
         } else if (auto enum_ = type->AsEnum(); enum_) {
             if (enum_->mSize == 0 ||
                 !IsValidPtr(enum_->mTypeName) ||
                 !IsValidPtr(enum_->mValues)
-                ) {
+            ) {
                 continue;
             }
         } else if (auto container = type->AsContainer(); container) {
@@ -115,7 +115,7 @@ static void ScanMemoryForTypes() {
                 !IsValidPtr(container->mContainerType->mTypeName) ||
                 container->mContainerType->mConstructor && !IsValidPtr(container->mContainerType->mConstructor) ||
                 container->mContainerType->mDestructor && !IsValidPtr(container->mContainerType->mDestructor)
-                ) {
+            ) {
                 continue;
             }
         } else if (auto pointer = type->AsPointer(); pointer) {
@@ -124,7 +124,7 @@ static void ScanMemoryForTypes() {
                 !IsValidPtr(pointer->mPointerType->mTypeName) ||
                 pointer->mPointerType->mConstructor && !IsValidPtr(pointer->mPointerType->mConstructor) ||
                 pointer->mPointerType->mDestructor && !IsValidPtr(pointer->mPointerType->mDestructor)
-                ) {
+            ) {
                 continue;
             }
         } else if (auto compound = type->AsCompound(); compound) {
@@ -132,7 +132,7 @@ static void ScanMemoryForTypes() {
                 compound->mNumBases && !IsValidPtr(compound->mBases) ||
                 compound->mNumAttrs && !IsValidPtr(compound->mAttrs) ||
                 compound->mNumMessageHandlers && !IsValidPtr(compound->mMessageHandlers)
-                ) {
+            ) {
                 continue;
             }
         } else {
@@ -144,8 +144,6 @@ static void ScanMemoryForTypes() {
 }
 
 static void (*RTTIFactory_RegistersSymbols)(void *);
-
-static void (*GraphProgramInstance_Evaluate)(GraphProgramInstance *);
 
 static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
     RTTIFactory_RegistersSymbols(inUnk);
@@ -162,6 +160,8 @@ static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
     // Dumper::Dump();
 }
 
+static void (*GraphProgramInstance_Evaluate)(GraphProgramInstance *);
+
 static void GraphProgramInstance_Evaluate_Hook(GraphProgramInstance *program) {
     auto &entryPoint = program->Program->EntryPoints[0];
 
@@ -177,19 +177,10 @@ static void GraphProgramInstance_Evaluate_Hook(GraphProgramInstance *program) {
 }
 
 void Dumper::Attach() {
-    auto [moduleBase, moduleEnd] = Offsets::GetModule();
-    auto offsetFromInstruction = [&](const char *Signature, uint32_t Add) {
-        auto addr = XUtil::FindPattern(moduleBase, moduleEnd - moduleBase, Signature);
-        if (!addr)
-            return addr;
-        auto relOffset = *reinterpret_cast<int32_t *>(addr + Add) + sizeof(int32_t);
-        return addr + Add + relOffset - moduleBase;
-    };
-
     // @formatter:off
-    Offsets::MapAddress("RTTIFactory::sExportedSymbols", offsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
-    Offsets::MapAddress("TrophySystem::Instance", offsetFromInstruction("48 89 1D ? ? ? ? E8 ? ? ? ? 48 8B 1D ? ? ? ? 48 8D 05 ? ? ? ? 48 8D 55 E0 48", 3));
-    Offsets::MapAddress("FactoryManager::Instance", offsetFromInstruction("48 8B 0D ? ? ? ? 48 89 54 24 ? 8B 42 F8 89 44 24 28 8B 42 F4 48 8D 54 24 ? 89 44 24 2C E8 ? ? ? ? 48 85 C0 74 0D 48 8B C8 E8", 3));
+    Offsets::MapAddress("RTTIFactory::sExportedSymbols", Offsets::OffsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
+    Offsets::MapAddress("TrophySystem::Instance", Offsets::OffsetFromInstruction("48 89 1D ? ? ? ? E8 ? ? ? ? 48 8B 1D ? ? ? ? 48 8D 05 ? ? ? ? 48 8D 55 E0 48", 3));
+    Offsets::MapAddress("FactoryManager::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 48 89 54 24 ? 8B 42 F8 89 44 24 28 8B 42 F4 48 8D 54 24 ? 89 44 24 2C E8 ? ? ? ? 48 85 C0 74 0D 48 8B C8 E8", 3));
 
     Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
     Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24");

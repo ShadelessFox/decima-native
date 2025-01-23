@@ -3,6 +3,7 @@ project(decima_native)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(GAME_PATH "E:\\SteamLibrary\\steamapps\\common\\Horizon Forbidden West Complete Edition")
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DWIN32_EXTRA_LEAN -DRTTI_STANDALONE)
 add_subdirectory(libs)
@@ -17,16 +18,17 @@ add_library(decima_native SHARED
         source/Util/Offsets.cpp
         source/Util/XUtil.cpp
         source/Dumper.cpp
+        source/Overlay.cpp
         source/exports.c
         source/main.cpp
 )
 
 target_include_directories(decima_native PRIVATE source)
-target_link_libraries(decima_native PRIVATE pattern16 detours)
+target_link_libraries(decima_native PRIVATE pattern16 detours imgui dxguid)
 set_target_properties(decima_native PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_custom_command(TARGET decima_native POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         $<TARGET_FILE:decima_native>
-        "\"D:\\SteamLibrary\\steamapps\\common\\Horizon Forbidden West Complete Edition\\winhttp.dll\""
+        "\"${GAME_PATH}\\winhttp.dll\""
 )

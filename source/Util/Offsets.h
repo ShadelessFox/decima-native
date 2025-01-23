@@ -25,6 +25,8 @@ namespace Offsets {
 
     uintptr_t FindOffset(uint64_t IDHash);
 
+    uintptr_t OffsetFromInstruction(const char *Signature, uint32_t Add);
+
     struct LiteralHash {
         uint64_t Value;
 
