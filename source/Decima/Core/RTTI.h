@@ -202,6 +202,8 @@ struct RTTICompound : RTTI {
 
     [[nodiscard]] auto Attrs() const { return std::span{mAttrs, mNumAttrs}; }
 
+    [[nodiscard]] auto Attrs() { return std::span{mAttrs, mNumAttrs}; }
+
     // [[nodiscard]] auto Functions() const { return std::span{mFunctions, mNumFunctions}; }
 
     [[nodiscard]] auto MessageHandlers() const { return std::span{mMessageHandlers, mNumMessageHandlers}; }
