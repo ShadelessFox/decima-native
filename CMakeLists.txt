@@ -24,7 +24,7 @@ add_library(decima_native SHARED
 )
 
 target_include_directories(decima_native PRIVATE source)
-target_link_libraries(decima_native PRIVATE pattern16 detours imgui dxguid)
+target_link_libraries(decima_native PRIVATE pattern16 detours imgui nixxes dxguid)
 set_target_properties(decima_native PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_custom_command(TARGET decima_native POST_BUILD

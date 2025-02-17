@@ -16,12 +16,19 @@
 #include "Exporter/JsonExporter.h"
 #include "Exporter/IdaExporter.h"
 
-#include "Nixxes/NxLog.h"
+#include "nixxes_log.h"
 
 #include <array>
 #include <algorithm>
 #include <set>
+#include <string>
 #include <print>
+
+namespace nx {
+    INxLog *INxLog::Instance() {
+        return *Offsets::ResolveID<"NxLogImpl::Instance", NxLogImpl **>();
+    }
+}
 
 static auto TypeComparator = [](const RTTI *inFirst, const RTTI *inSecond) -> bool {
     static constexpr std::array Order{
@@ -145,23 +152,19 @@ static void ScanMemoryForTypes() {
     }
 }
 
-static bool (*NxInitSystems)();
+static bool (*NxLogImpl_Startup)(nx::NxLogImpl *);
 
-static bool NxInitSystems_Hook() {
-    if (!NxInitSystems())
-        return false;
-
-    auto log = NxLog::Instance();
+static bool NxLogImpl_Startup_Hook(nx::NxLogImpl *log) {
     auto vtbl = *reinterpret_cast<void ***>(log);
 
-    static auto NxLog_PrintA = reinterpret_cast<void(*)(NxLog *, const char *)>(vtbl[7]);
-    static auto NxLog_PrintA_Hook = +[](NxLog *inLog, const char *inText) {
+    static auto NxLog_PrintA = reinterpret_cast<void(*)(nx::INxLog *, const char *)>(vtbl[7]);
+    static auto NxLog_PrintA_Hook = +[](nx::INxLog *inLog, const char *inText) {
         NxLog_PrintA(inLog, inText);
         std::print("{}", inText);
     };
 
-    static auto NxLog_PrintLnA = reinterpret_cast<void(*)(NxLog *, const char *)>(vtbl[8]);
-    static auto NxLog_PrintLnA_Hook = +[](NxLog *inLog, const char *inText) {
+    static auto NxLog_PrintLnA = reinterpret_cast<void(*)(nx::INxLog *, const char *)>(vtbl[8]);
+    static auto NxLog_PrintLnA_Hook = +[](nx::INxLog *inLog, const char *inText) {
         NxLog_PrintLnA(inLog, inText);
         std::print("{}\n", inText);
     };
@@ -172,7 +175,7 @@ static bool NxInitSystems_Hook() {
     DetourAttach(reinterpret_cast<PVOID *>(&NxLog_PrintLnA), static_cast<PVOID>(NxLog_PrintLnA_Hook));
     DetourTransactionCommit();
 
-    return true;
+    return NxLogImpl_Startup(log);
 }
 
 static void (*RTTIFactory_RegistersSymbols)(void *);
@@ -220,18 +223,18 @@ void Dumper::Attach() {
     Offsets::MapSignature("RTTIFactory::RegisterSymbols", "48 89 4C 24 ? 41 56 48 83 EC 50 48 89 5C 24 ? 48 8D 0D ? ? ? ? 48 89");
     Offsets::MapSignature("StreamingGraphResource::ResolveTypeHashes", "48 89 5C 24 20 56 57 41 54 41 56 41 57 48 83 EC 20 65 48 8B 04 25 58");
     Offsets::MapSignature("GraphProgramInstance::Evaluate", "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 8B 41 40");
-    Offsets::MapSignature("NxInitSystems", "48 83 EC 38 48 83 3D ? ? ? ? ? 74 07 32 C0 48 83 C4 38 C3 48 83 3D ? ? ? ? ? 48 89 5C 24 40 48 89");
+    Offsets::MapSignature("NxLogImpl::Startup", "40 55 41 54 41 55 41 56 41 57 48 81 EC 90 00 00 00 48 8D 6C 24 20 48 89 9D A8 00 00 00 48 89");
     // @formatter:on
 
     RTTIFactory_RegistersSymbols = Offsets::ResolveID<"RTTIFactory::RegisterSymbols", decltype(RTTIFactory_RegistersSymbols)>();
     GraphProgramInstance_Evaluate = Offsets::ResolveID<"GraphProgramInstance::Evaluate", decltype(GraphProgramInstance_Evaluate)>();
-    NxInitSystems = Offsets::ResolveID<"NxInitSystems", decltype(NxInitSystems)>();
+    NxLogImpl_Startup = Offsets::ResolveID<"NxLogImpl::Startup", decltype(NxLogImpl_Startup)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
     DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourAttach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&NxInitSystems), static_cast<PVOID>(NxInitSystems_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
     DetourTransactionCommit();
 }
 
@@ -240,7 +243,7 @@ void Dumper::Detach() {
     DetourUpdateThread(GetCurrentThread());
     DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourDetach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&NxInitSystems), static_cast<PVOID>(NxInitSystems_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
     DetourTransactionCommit();
 }
 

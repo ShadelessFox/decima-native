@@ -7,3 +7,6 @@
 [submodule "libs/imgui"]
 	path = libs/imgui
 	url = https://github.com/ocornut/imgui
+[submodule "libs/nixxes"]
+	path = libs/nixxes
+	url = https://github.com/ShadelessFox/nixxes.h

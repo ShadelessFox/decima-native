@@ -1,10 +1,11 @@
 #include "Overlay.h"
 
-#include "Nixxes/NxDXGI.h"
-#include "Nixxes/NxD3D.h"
-
+#include "Util/Assert.h"
 #include "Util/Offsets.h"
 #include "Util/Typedefs.h"
+
+#include "nixxes_dxgi.h"
+#include "nixxes_d3d.h"
 
 #include <detours.h>
 #include <d3d12.h>
@@ -17,6 +18,17 @@
 
 #include <vector>
 
+namespace nx {
+    INxD3D *INxD3D::Instance() {
+        return *Offsets::ResolveID<"NxD3DImpl::Instance", NxD3DImpl **>();
+    }
+
+    INxDXGI *INxDXGI::Instance() {
+        return *Offsets::ResolveID<"NxDXGIImpl::Instance", NxDXGIImpl **>();
+    }
+
+}
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 static WNDPROC WndProc;
@@ -27,9 +39,9 @@ static LRESULT APIENTRY WndProc_Hook(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     return CallWindowProcW(WndProc, hwnd, uMsg, wParam, lParam);
 }
 
-static bool (*NxDXGIImpl_Present)(NxDXGIImpl *, pVoid);
+static bool (*NxDXGIImpl_Present)(nx::NxDXGIImpl *, pVoid);
 
-static bool NxDXGIImpl_Present_Hook(NxDXGIImpl *dxgi, pVoid inData) {
+static bool NxDXGIImpl_Present_Hook(nx::NxDXGIImpl *dxgi, pVoid inData) {
     struct BackBuffer {
         ID3D12CommandAllocator *Allocator;
         ID3D12Resource *Resource;
@@ -109,7 +121,7 @@ static bool NxDXGIImpl_Present_Hook(NxDXGIImpl *dxgi, pVoid inData) {
 
         ImGui_ImplDX12_InitInfo info;
         info.Device = device;
-        info.CommandQueue = NxD3DImpl::Instance()->GetCommandQueue(0);
+        info.CommandQueue = nx::INxD3D::Instance()->GetCommandQueue(0);
         info.NumFramesInFlight = backBuffers.size();
         info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
         info.DSVFormat = DXGI_FORMAT_UNKNOWN;
@@ -157,7 +169,7 @@ static bool NxDXGIImpl_Present_Hook(NxDXGIImpl *dxgi, pVoid inData) {
     commandList->ResourceBarrier(1, &barrier);
     commandList->Close();
 
-    ID3D12CommandQueue *commandQueue = NxD3DImpl::Instance()->GetCommandQueue(0);
+    ID3D12CommandQueue *commandQueue = nx::INxD3D::Instance()->GetCommandQueue(0);
     commandQueue->ExecuteCommandLists(1, reinterpret_cast<ID3D12CommandList *const *>(&commandList));
 
     return NxDXGIImpl_Present(dxgi, inData);
