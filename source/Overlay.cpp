@@ -2,21 +2,21 @@
 
 #include "Util/Assert.h"
 #include "Util/Offsets.h"
-#include "Util/Typedefs.h"
 
 #include "nixxes_dxgi.h"
 #include "nixxes_d3d.h"
 
+#include <Windows.h>
 #include <detours.h>
-#include <d3d12.h>
 #include <dxgi1_4.h>
 
-// #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 #include <imgui.h>
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
 
 #include <vector>
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace nx {
     INxD3D *INxD3D::Instance() {
@@ -26,10 +26,20 @@ namespace nx {
     INxDXGI *INxDXGI::Instance() {
         return *Offsets::ResolveID<"NxDXGIImpl::Instance", NxDXGIImpl **>();
     }
-
 }
 
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+namespace Overlay {
+    std::vector<ID3D12CommandAllocator *> CommandAllocators;
+    ID3D12GraphicsCommandList *CommandList;
+    ID3D12DescriptorHeap *SrvDescriptorHeap;
+    ID3D12DescriptorHeap *RtvDescriptorHeap;
+
+    static void Initialize(nx::NxDXGIImpl *, nx::NxD3DImpl *);
+
+    static void Render();
+
+    static void Present(nx::NxDXGIImpl *, nx::NxD3DImpl *);
+}
 
 static WNDPROC WndProc;
 
@@ -39,102 +49,87 @@ static LRESULT APIENTRY WndProc_Hook(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     return CallWindowProcW(WndProc, hwnd, uMsg, wParam, lParam);
 }
 
-static bool (*NxDXGIImpl_Present)(nx::NxDXGIImpl *, pVoid);
+static bool (*NxDXGIImpl_Present)(nx::NxDXGIImpl *, void *);
 
-static bool NxDXGIImpl_Present_Hook(nx::NxDXGIImpl *dxgi, pVoid inData) {
-    struct BackBuffer {
-        ID3D12CommandAllocator *Allocator;
-        ID3D12Resource *Resource;
-        D3D12_CPU_DESCRIPTOR_HANDLE CPUDescriptorHandle;
-    };
-
-    static IDXGISwapChain3 *swapChain = nullptr;
-    static ID3D12Device *device = nullptr;
-    static ID3D12DescriptorHeap *rtvDescHeap = nullptr;
-    static ID3D12DescriptorHeap *srvDescHeap = nullptr;
-    static ID3D12GraphicsCommandList *commandList = nullptr;
-    static std::vector<BackBuffer> backBuffers;
-
+static bool NxDXGIImpl_Present_Hook(nx::NxDXGIImpl *inDXGI, void *inData) {
     static bool initialized = [&]() {
-        dxgi->SwapChain->QueryInterface(IID_PPV_ARGS(&swapChain));
-        assert(swapChain != nullptr);
-
-        dxgi->SwapChain->GetDevice(IID_PPV_ARGS(&device));
-        assert(device != nullptr);
-
-        HRESULT hr = S_OK;
-
-        DXGI_SWAP_CHAIN_DESC sdesc;
-        hr |= swapChain->GetDesc(&sdesc);
-
-        backBuffers.resize(sdesc.BufferCount);
-
-        {
-            D3D12_DESCRIPTOR_HEAP_DESC desc{};
-            desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-            desc.NumDescriptors = sdesc.BufferCount;
-            desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-            desc.NodeMask = 1;
-
-            hr |= device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&rtvDescHeap));
-
-            SIZE_T rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-            D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
-
-            for (auto i = 0; i < sdesc.BufferCount; i++) {
-                backBuffers[i].CPUDescriptorHandle = rtvHandle;
-                rtvHandle.ptr += rtvDescriptorSize;
-            }
-        }
-
-        {
-            D3D12_DESCRIPTOR_HEAP_DESC desc{};
-            desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-            desc.NumDescriptors = 1;
-            desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-            hr |= device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&srvDescHeap));
-        }
-
-        for (auto i = 0; i < sdesc.BufferCount; i++)
-            hr |= device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&backBuffers[i].Allocator));
-
-        hr |= device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, backBuffers[0].Allocator, nullptr, IID_PPV_ARGS(&commandList));
-        hr |= commandList->Close();
-
-        for (auto i = 0; i < sdesc.BufferCount; i++) {
-            auto &backBuffer = backBuffers[i];
-            hr |= swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer.Resource));
-            device->CreateRenderTargetView(backBuffer.Resource, nullptr, backBuffer.CPUDescriptorHandle);
-        }
-
-        if (!SUCCEEDED(hr))
-            DebugBreak();
-
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGui::StyleColorsDark();
-
-        auto& io = ImGui::GetIO();
-        io.WantCaptureMouse = true;
-        io.WantCaptureKeyboard = true;
-
-        ImGui_ImplDX12_InitInfo info;
-        info.Device = device;
-        info.CommandQueue = nx::INxD3D::Instance()->GetCommandQueue(0);
-        info.NumFramesInFlight = backBuffers.size();
-        info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-        info.DSVFormat = DXGI_FORMAT_UNKNOWN;
-        info.LegacySingleSrvCpuDescriptor = srvDescHeap->GetCPUDescriptorHandleForHeapStart();
-        info.LegacySingleSrvGpuDescriptor = srvDescHeap->GetGPUDescriptorHandleForHeapStart();
-
-        ImGui_ImplWin32_Init(sdesc.OutputWindow);
-        ImGui_ImplDX12_Init(&info);
-        WndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(sdesc.OutputWindow, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc_Hook)));
-
+        Overlay::Initialize(inDXGI, reinterpret_cast<nx::NxD3DImpl *>(nx::INxD3D::Instance()));
         return true;
     }();
 
+    if (initialized) {
+        Overlay::Render();
+        Overlay::Present(inDXGI, reinterpret_cast<nx::NxD3DImpl *>(nx::INxD3D::Instance()));
+    }
+
+    return NxDXGIImpl_Present(inDXGI, inData);
+}
+
+void Overlay::Initialize(nx::NxDXGIImpl *inDXGI, nx::NxD3DImpl *inD3D) {
+    ID3D12Device *device = nullptr;
+    inDXGI->SwapChain->GetDevice(IID_PPV_ARGS(&device));
+
+    HWND window = nullptr;
+    inDXGI->SwapChain->GetHwnd(&window);
+
+    HRESULT hr = S_OK;
+
+    const D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = 16,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+    };
+
+    hr |= device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&SrvDescriptorHeap));
+
+    const D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {
+        .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+        .NumDescriptors = 8,
+        .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+    };
+
+    hr |= device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&RtvDescriptorHeap));
+
+    CommandAllocators.resize(inDXGI->NumBuffers);
+
+    ID3D12Resource *tempBackBuffer = nullptr;
+    hr |= inDXGI->SwapChain->GetBuffer(0, IID_PPV_ARGS(&tempBackBuffer));
+    D3D12_RESOURCE_DESC backBufferDesc = tempBackBuffer->GetDesc();
+    tempBackBuffer->Release();
+
+    for (auto &CommandAllocator: CommandAllocators)
+        hr |= device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CommandAllocator));
+
+    hr |= device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocators[0], nullptr, IID_PPV_ARGS(&CommandList));
+
+    if (FAILED(hr))
+        __debugbreak();
+
+    CommandList->Close();
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    auto &io = ImGui::GetIO();
+    io.WantCaptureMouse = true;
+    io.WantCaptureKeyboard = true;
+
+    ImGui_ImplDX12_InitInfo info;
+    info.Device = device;
+    info.CommandQueue = inD3D->GetCommandQueue(0);
+    info.NumFramesInFlight = static_cast<int>(inDXGI->NumBuffers);
+    info.RTVFormat = backBufferDesc.Format;
+    info.SrvDescriptorHeap = SrvDescriptorHeap;
+    info.LegacySingleSrvCpuDescriptor = SrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+    info.LegacySingleSrvGpuDescriptor = SrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+
+    ImGui_ImplWin32_Init(window);
+    ImGui_ImplDX12_Init(&info);
+    WndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc_Hook)));
+}
+
+void Overlay::Render() {
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -143,42 +138,56 @@ static bool NxDXGIImpl_Present_Hook(nx::NxDXGIImpl *dxgi, pVoid inData) {
     if (showing)
         ImGui::ShowDemoWindow(&showing);
 
-    ImGui::EndFrame();
     ImGui::Render();
+}
 
-    auto &backBuffer = backBuffers[swapChain->GetCurrentBackBufferIndex()];
-    backBuffer.Allocator->Reset();
+void Overlay::Present(nx::NxDXGIImpl *inDXGI, nx::NxD3DImpl *inD3D) {
+    ImDrawData *drawData = ImGui::GetDrawData();
+    if (!drawData->Valid || drawData->CmdListsCount == 0)
+        return;
 
-    D3D12_RESOURCE_BARRIER barrier{};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = backBuffer.Resource;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    const auto bufferIndex = inDXGI->SwapChain->GetCurrentBackBufferIndex();
+    const auto buffer = inD3D->GetBackBuffer(bufferIndex);
 
-    commandList->Reset(backBuffer.Allocator, nullptr);
-    commandList->ResourceBarrier(1, &barrier);
-    commandList->OMSetRenderTargets(1, &backBuffer.CPUDescriptorHandle, false, nullptr);
-    commandList->SetDescriptorHeaps(1, &srvDescHeap);
+    // Create a brand new RTV each frame. Tracking this in engine code is too difficult.
+    const auto &rtvHandle = RtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+    inD3D->GetDevice()->CreateRenderTargetView(buffer, nullptr, rtvHandle);
 
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+    // Reset command allocator, command list, then draw
+    auto allocator = CommandAllocators[bufferIndex];
+    allocator->Reset();
 
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-    commandList->ResourceBarrier(1, &barrier);
-    commandList->Close();
+    D3D12_RESOURCE_BARRIER barrier = {
+        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+        .Transition = {
+            .pResource = buffer,
+            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+            .StateBefore = D3D12_RESOURCE_STATE_PRESENT,
+            .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+        },
+    };
 
-    ID3D12CommandQueue *commandQueue = nx::INxD3D::Instance()->GetCommandQueue(0);
-    commandQueue->ExecuteCommandLists(1, reinterpret_cast<ID3D12CommandList *const *>(&commandList));
+    CommandList->Reset(allocator, nullptr);
+    CommandList->ResourceBarrier(1, &barrier);
 
-    return NxDXGIImpl_Present(dxgi, inData);
+    CommandList->SetDescriptorHeaps(1, &SrvDescriptorHeap);
+    CommandList->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
+    ImGui_ImplDX12_RenderDrawData(drawData, CommandList);
+
+    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+    CommandList->ResourceBarrier(1, &barrier);
+    CommandList->Close();
+
+    inD3D->GetCommandQueue(0)->ExecuteCommandLists(1, reinterpret_cast<ID3D12CommandList *const *>(&CommandList));
 }
 
 void Overlay::Attach() {
+    // @formatter:off
     Offsets::MapSignature("NxDXGIImpl::Present", "40 55 56 57 41 54 41 56 48 8D AC 24 00 FD FF FF 48 81 EC 00 04 00 00 48 8B F1 33 FF 48");
     Offsets::MapAddress("NxD3DImpl::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 48 8B 01 FF 90 B8 00 00 00 84 C0 75 13 48 8B 0D", 3));
     Offsets::MapAddress("NxDXGIImpl::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 48 8B 01 FF 50 08 0F B6 D8 84 C0 74 64 48 8B 0D", 3));
+    // @formatter:on
 
     NxDXGIImpl_Present = Offsets::ResolveID<"NxDXGIImpl::Present", decltype(NxDXGIImpl_Present)>();
 
