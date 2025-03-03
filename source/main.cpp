@@ -9,19 +9,9 @@
     (void) reserved;
 
     if (reason == DLL_PROCESS_ATTACH) {
-#if 0
-        switch (MessageBoxA(nullptr, "Do you want to attach the injector?", "Choose action", MB_YESNOCANCEL | MB_ICONQUESTION)) {
-            case IDYES:
-                break;
-            case IDNO:
-                return TRUE;
-            case IDCANCEL:
-                ExitProcess(0);
-        }
-#endif
-
         AllocConsole();
         AttachConsole(ATTACH_PARENT_PROCESS);
+        SetConsoleOutputCP(CP_UTF8);
         freopen("CON", "w", stdout);
 
         Overlay::Attach();

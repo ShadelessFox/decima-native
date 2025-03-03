@@ -15,6 +15,8 @@
 #include <imgui_impl_win32.h>
 
 #include <vector>
+#include <unordered_set>
+#include <optional>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -34,19 +36,26 @@ namespace Overlay {
     ID3D12DescriptorHeap *SrvDescriptorHeap;
     ID3D12DescriptorHeap *RtvDescriptorHeap;
 
+    struct OverlayState {
+        bool ShowOverlay = false;
+        bool ShowDemoWindow = false;
+    } State;
+
     static void Initialize(nx::NxDXGIImpl *, nx::NxD3DImpl *);
 
     static void Render();
 
     static void Present(nx::NxDXGIImpl *, nx::NxD3DImpl *);
+
+    static std::optional<LRESULT> HandleMessage(HWND, UINT, WPARAM, LPARAM);
 }
 
 static WNDPROC WndProc;
 
-static LRESULT APIENTRY WndProc_Hook(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
-        return true;
-    return CallWindowProcW(WndProc, hwnd, uMsg, wParam, lParam);
+static LRESULT APIENTRY WndProc_Hook(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (auto result = Overlay::HandleMessage(hWnd, uMsg, wParam, lParam))
+        return result.value();
+    return CallWindowProcW(WndProc, hWnd, uMsg, wParam, lParam);
 }
 
 static bool (*NxDXGIImpl_Present)(nx::NxDXGIImpl *, void *);
@@ -134,9 +143,19 @@ void Overlay::Render() {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    static bool showing = true;
-    if (showing)
-        ImGui::ShowDemoWindow(&showing);
+    if (State.ShowOverlay) {
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("Help")) {
+                ImGui::MenuItem("Show Demo", nullptr, &State.ShowDemoWindow);
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMainMenuBar();
+        }
+
+        if (State.ShowDemoWindow)
+            ImGui::ShowDemoWindow(&State.ShowDemoWindow);
+    }
 
     ImGui::Render();
 }
@@ -180,6 +199,31 @@ void Overlay::Present(nx::NxDXGIImpl *inDXGI, nx::NxD3DImpl *inD3D) {
     CommandList->Close();
 
     inD3D->GetCommandQueue(0)->ExecuteCommandLists(1, reinterpret_cast<ID3D12CommandList *const *>(&CommandList));
+}
+
+// Stolen from https://github.com/Nukem9/hfw-gameplay-tweaks
+std::optional<LRESULT> Overlay::HandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (uMsg == WM_KEYDOWN && wParam == VK_F1) {
+        State.ShowOverlay = !State.ShowOverlay;
+        ImGui::GetIO().MouseDrawCursor = State.ShowOverlay;
+        return 1;
+    }
+
+    ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
+
+    if (State.ShowOverlay) {
+        const static std::unordered_set<UINT> blockedMessages = {
+            WM_MOUSEMOVE,	WM_MOUSELEAVE,	  WM_LBUTTONDOWN, WM_LBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONDBLCLK,
+            WM_MBUTTONDOWN, WM_MBUTTONDBLCLK, WM_XBUTTONDOWN, WM_XBUTTONDBLCLK, WM_LBUTTONUP,	WM_RBUTTONUP,
+            WM_MBUTTONUP,	WM_XBUTTONUP,	  WM_MOUSEWHEEL,  WM_MOUSEHWHEEL,	WM_KEYDOWN,		WM_KEYUP,
+            WM_SYSKEYDOWN,	WM_SYSKEYUP,	  WM_CHAR,		  WM_INPUT,
+        };
+
+        if (blockedMessages.contains(uMsg))
+            return 0;
+    }
+
+    return std::nullopt;
 }
 
 void Overlay::Attach() {
