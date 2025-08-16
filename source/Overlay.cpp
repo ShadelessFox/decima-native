@@ -3,6 +3,8 @@
 #include "Util/Assert.h"
 #include "Util/Offsets.h"
 
+#include "Decima/Core/GameModule.h"
+
 #include "nixxes_dxgi.h"
 #include "nixxes_d3d.h"
 
@@ -11,6 +13,7 @@
 #include <dxgi1_4.h>
 
 #include <imgui.h>
+#include <imgui_memory_editor.h>
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
 
@@ -38,7 +41,9 @@ namespace Overlay {
 
     struct OverlayState {
         bool ShowOverlay = false;
-        bool ShowDemoWindow = false;
+        bool ShowDemo = false;
+        bool ShowEditor = false;
+        MemoryEditor Editor;
     } State;
 
     static void Initialize(nx::NxDXGIImpl *, nx::NxD3DImpl *);
@@ -143,18 +148,55 @@ void Overlay::Render() {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    if (State.ShowOverlay) {
-        if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("Help")) {
-                ImGui::MenuItem("Show Demo", nullptr, &State.ShowDemoWindow);
-                ImGui::EndMenu();
+    if (!State.ShowOverlay) {
+        ImGui::Render();
+        return;
+    }
+
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("Gameplay")) {
+            if (auto module = GameModule::Get()) {
+                if (auto state = module->mGameWorldTimeState) {
+                    if (ImGui::MenuItem("Pause Time of Day", nullptr, state->mIsPaused))
+                        state->mIsPaused = !state->mIsPaused;
+                    if (ImGui::MenuItem("Pause Day/Night Cycle", nullptr, !state->mIsDayNightCycleEnabled))
+                        state->mIsDayNightCycleEnabled = !state->mIsDayNightCycleEnabled;
+
+                    ImGui::MenuItem("Day Number", nullptr, nullptr, false);
+                    ImGui::InputInt("##DayNumberInput", reinterpret_cast<int *>(&state->mDay));
+
+                    ImGui::MenuItem("Day Duration", nullptr, nullptr, false);
+                    ImGui::SliderFloat("##DayDurationSlider", &state->mDayNightCycleDuration, 1200.0f, 4800.0f, "%.3fs");
+
+                    float timeOfDay = state->mTimeOfDay;
+
+                    ImGui::MenuItem("Time of Day", nullptr, nullptr, false);
+                    if (ImGui::SliderFloat("##TimeOfDaySlider", &timeOfDay, 0.0f, 23.9999f))
+                        state->SetTimeOfDay(timeOfDay, 0.0f);
+                }
             }
 
-            ImGui::EndMainMenuBar();
+            ImGui::EndMenu();
         }
 
-        if (State.ShowDemoWindow)
-            ImGui::ShowDemoWindow(&State.ShowDemoWindow);
+        if (ImGui::BeginMenu("Debug")) {
+            ImGui::MenuItem("Show Demo", nullptr, &State.ShowDemo);
+            ImGui::MenuItem("Show Memory of GameWorldTimeState", nullptr, &State.ShowEditor);
+            ImGui::EndMenu();
+        }
+
+        ImGui::EndMainMenuBar();
+    }
+
+    if (State.ShowDemo)
+        ImGui::ShowDemoWindow(&State.ShowDemo);
+
+    if (State.ShowEditor) {
+        if (auto module = GameModule::Get()) {
+            if (auto state = module->mGameWorldTimeState) {
+                State.Editor.DrawWindow("GameWorldTimeState", state, sizeof(*state));
+            }
+        }
     }
 
     ImGui::Render();
@@ -213,10 +255,10 @@ std::optional<LRESULT> Overlay::HandleMessage(HWND hWnd, UINT uMsg, WPARAM wPara
 
     if (State.ShowOverlay) {
         const static std::unordered_set<UINT> blockedMessages = {
-            WM_MOUSEMOVE,	WM_MOUSELEAVE,	  WM_LBUTTONDOWN, WM_LBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONDBLCLK,
-            WM_MBUTTONDOWN, WM_MBUTTONDBLCLK, WM_XBUTTONDOWN, WM_XBUTTONDBLCLK, WM_LBUTTONUP,	WM_RBUTTONUP,
-            WM_MBUTTONUP,	WM_XBUTTONUP,	  WM_MOUSEWHEEL,  WM_MOUSEHWHEEL,	WM_KEYDOWN,		WM_KEYUP,
-            WM_SYSKEYDOWN,	WM_SYSKEYUP,	  WM_CHAR,		  WM_INPUT,
+            WM_MOUSEMOVE, WM_MOUSELEAVE, WM_LBUTTONDOWN, WM_LBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONDBLCLK,
+            WM_MBUTTONDOWN, WM_MBUTTONDBLCLK, WM_XBUTTONDOWN, WM_XBUTTONDBLCLK, WM_LBUTTONUP, WM_RBUTTONUP,
+            WM_MBUTTONUP, WM_XBUTTONUP, WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WM_KEYDOWN, WM_KEYUP,
+            WM_SYSKEYDOWN, WM_SYSKEYUP, WM_CHAR, WM_INPUT,
         };
 
         if (blockedMessages.contains(uMsg))

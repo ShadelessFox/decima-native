@@ -216,6 +216,7 @@ void Dumper::Attach() {
     Offsets::MapAddress("RTTIFactory::sExportedSymbols", Offsets::OffsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
     Offsets::MapAddress("TrophySystem::Instance", Offsets::OffsetFromInstruction("48 89 1D ? ? ? ? E8 ? ? ? ? 48 8B 1D ? ? ? ? 48 8D 05 ? ? ? ? 48 8D 55 E0 48", 3));
     Offsets::MapAddress("FactoryManager::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 48 89 54 24 ? 8B 42 F8 89 44 24 28 8B 42 F4 48 8D 54 24 ? 89 44 24 2C E8 ? ? ? ? 48 85 C0 74 0D 48 8B C8 E8", 3));
+    Offsets::MapAddress("GameModule::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 44 0F B6 C8 44 0F B6 C5 48 85 C9 75 15 E8 ? ? ? ?", 3));
     Offsets::MapAddress("NxLogImpl::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 4C 8D 05 ? ? ? ? 48 8D 15 ? ? ? ? 48 8B 01 FF 50 48 48 8B 06 B2 01 48", 3));
 
     Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
@@ -224,6 +225,8 @@ void Dumper::Attach() {
     Offsets::MapSignature("StreamingGraphResource::ResolveTypeHashes", "48 89 5C 24 20 56 57 41 54 41 56 41 57 48 83 EC 20 65 48 8B 04 25 58");
     Offsets::MapSignature("GraphProgramInstance::Evaluate", "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 8B 41 40");
     Offsets::MapSignature("NxLogImpl::Startup", "40 55 41 54 41 55 41 56 41 57 48 81 EC 90 00 00 00 48 8D 6C 24 20 48 89 9D A8 00 00 00 48 89");
+
+    Offsets::MapSignature("GameWorldTimeState::SetTimeOfDay", "C5 FA 10 59 20 C5 F8 57 C0 C5 F8 2F D0 76 33 C5 F8 2F CB 72 06 C5 F2 5C C3");
     // @formatter:on
 
     RTTIFactory_RegistersSymbols = Offsets::ResolveID<"RTTIFactory::RegisterSymbols", decltype(RTTIFactory_RegistersSymbols)>();
@@ -232,8 +235,8 @@ void Dumper::Attach() {
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
+    // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
+    // DetourAttach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
     DetourAttach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
     DetourTransactionCommit();
 }
@@ -241,8 +244,8 @@ void Dumper::Attach() {
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
+    // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
+    // DetourDetach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
     DetourDetach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
     DetourTransactionCommit();
 }

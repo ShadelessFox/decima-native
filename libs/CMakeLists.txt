@@ -24,7 +24,7 @@ add_library(imgui STATIC
         imgui/backends/imgui_impl_win32.cpp
         imgui/backends/imgui_impl_dx12.cpp
 )
-target_include_directories(imgui PUBLIC imgui imgui/backends)
+target_include_directories(imgui PUBLIC imgui imgui/backends imgui_club/imgui_memory_editor)
 set_target_properties(imgui PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_library(nixxes INTERFACE)
