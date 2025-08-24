@@ -37,12 +37,16 @@ public:
 
     [[nodiscard]] const char *c_str() const { return mData; }
 
+    [[nodiscard]] std::string str() const { return c_str(); }
+
     [[nodiscard]] std::string_view view() const { return c_str(); }
 
-    [[nodiscard]] size_t size() const { return data().mLength; }
+    [[nodiscard]] size_t size() const { return buffer().mLength; }
+
+    [[nodiscard]] size_t capacity() const { return buffer().mCapacity; }
 
 private:
-    struct Data {
+    struct Buffer {
         uint32_t mRefCount;
         uint32_t mCrc;
         uint32_t mLength;
@@ -50,9 +54,24 @@ private:
         char mData[];
     };
 
-    [[nodiscard]] const Data &data() const {
-        return *reinterpret_cast<const Data *>(reinterpret_cast<ptrdiff_t>(mData - sizeof(Data)));
+    [[nodiscard]] Buffer &buffer() const {
+        return *reinterpret_cast<Buffer *>(reinterpret_cast<uintptr_t>(mData - sizeof(Buffer)));
+    }
+
+    void set(Buffer *inBuffer) {
+        mData = reinterpret_cast<const char *>(reinterpret_cast<uintptr_t>(inBuffer) + sizeof(Buffer));
     }
 
     const char *mData{nullptr};
+};
+
+template<>
+struct std::formatter<String> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        return ctx.begin();
+    }
+
+    auto format(const String& string, std::format_context& ctx) const {
+        return std::format_to(ctx.out(), "{}", string.c_str());
+    }
 };

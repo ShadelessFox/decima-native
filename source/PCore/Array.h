@@ -4,6 +4,8 @@
 #include <functional>
 #include <iterator>
 
+#include "Offsets.h"
+
 template<typename T, bool Const, typename PtrType = std::conditional_t<Const, const T *, T *>>
 class ArrayIterator {
 public:
@@ -56,32 +58,41 @@ public:
     using iterator = ArrayIterator<T, false>;
     using const_iterator = ArrayIterator<T, true>;
 
-    Array() = delete;
+    Array() = default;
 
     Array(const Array &) = delete;
 
     Array(Array &&) = default;
 
-    T &operator[](size_t index) { return m_Entries[index]; }
+    ~Array() {
+        for (auto &item: *this)
+            item.~T();
+        Offsets::CallID<"gMemFree", void(*)(void *)>(mEntries);
+        mCount = 0;
+        mCapacity = 0;
+        mEntries = nullptr;
+    }
 
-    const T &operator[](size_t index) const { return m_Entries[index]; }
+    T &operator[](size_t index) { return mEntries[index]; }
 
-    iterator begin() { return iterator(&m_Entries[0]); }
+    const T &operator[](size_t index) const { return mEntries[index]; }
 
-    iterator end() { return iterator(&m_Entries[m_Count]); }
+    iterator begin() { return iterator(&mEntries[0]); }
 
-    const_iterator begin() const { return const_iterator(&m_Entries[0]); }
+    iterator end() { return iterator(&mEntries[mCount]); }
 
-    const_iterator end() const { return const_iterator(&m_Entries[m_Count]); }
+    const_iterator begin() const { return const_iterator(&mEntries[0]); }
 
-    [[nodiscard]] std::size_t size() const { return m_Count; }
+    const_iterator end() const { return const_iterator(&mEntries[mCount]); }
 
-    [[nodiscard]] std::size_t capacity() const { return m_Capacity; }
+    [[nodiscard]] std::size_t size() const { return mCount; }
 
-    [[nodiscard]] bool empty() const { return m_Count == 0; }
+    [[nodiscard]] std::size_t capacity() const { return mCapacity; }
+
+    [[nodiscard]] bool empty() const { return mCount == 0; }
 
 private:
-    uint32_t m_Count;
-    uint32_t m_Capacity;
-    T *m_Entries;
+    uint32_t mCount{};
+    uint32_t mCapacity{};
+    T *mEntries{nullptr};
 };
