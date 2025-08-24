@@ -4,13 +4,9 @@
 #include "Dumper.h"
 #include "Overlay.h"
 
-#include "TlHelp32.h"
-
 [[maybe_unused]] BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID *reserved) {
     (void) instance;
     (void) reserved;
-
-    CreateToolhelp32Snapshot();
 
     if (reason == DLL_PROCESS_ATTACH) {
         AllocConsole();
