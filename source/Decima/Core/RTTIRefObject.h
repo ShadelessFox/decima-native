@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Windows.h>
+
 #include "Decima/Core/RTTIObject.h"
 #include "Decima/PCore/UUID.h"
 #include "Util/Offsets.h"

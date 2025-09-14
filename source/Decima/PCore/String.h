@@ -2,6 +2,8 @@
 
 #include "Util/Offsets.h"
 
+#include <format>
+
 class String {
 public:
     String() {
@@ -33,6 +35,10 @@ public:
 
     bool operator!=(const char *rhs) const {
         return strcmp(mData, rhs) != 0;
+    }
+
+    auto operator<=>(const String &inRhs) const {
+        return strcmp(mData, inRhs.mData);
     }
 
     [[nodiscard]] const char *c_str() const { return mData; }
@@ -67,11 +73,11 @@ private:
 
 template<>
 struct std::formatter<String> {
-    constexpr auto parse(std::format_parse_context& ctx) {
+    constexpr auto parse(std::format_parse_context &ctx) {
         return ctx.begin();
     }
 
-    auto format(const String& string, std::format_context& ctx) const {
+    auto format(const String &string, std::format_context &ctx) const {
         return std::format_to(ctx.out(), "{}", string.c_str());
     }
 };

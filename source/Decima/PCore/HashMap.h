@@ -96,3 +96,39 @@ private:
     size_type mSize{0};
     size_type mCapacity{0};
 };
+
+template<typename Key, typename Hash = uint32_t>
+class HashSet {
+private:
+    struct Entry;
+public:
+    using key_type = Key;
+    using value_type = Key;
+    using size_type = std::uint32_t;
+    using difference_type = std::ptrdiff_t;
+
+    using hasher = Hash;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+
+    using iterator = HashContainerIterator<Entry, false>;
+    using const_iterator = HashContainerIterator<Entry, true>;
+
+    iterator begin() { return iterator(mEntries, &mEntries[mCapacity]); }
+
+    iterator end() { return iterator(&mEntries[mCapacity], &mEntries[mCapacity]); }
+
+    const_iterator begin() const { return const_iterator(mEntries, &mEntries[mCapacity]); }
+
+    const_iterator end() const { return const_iterator(&mEntries[mCapacity], &mEntries[mCapacity]); }
+
+private:
+    struct Entry {
+        hasher mHash;
+        value_type mValue;
+    };
+
+    Entry *mEntries{nullptr};
+    size_type mSize{0};
+    size_type mCapacity{0};
+};

@@ -10,14 +10,17 @@ add_subdirectory(libs)
 
 add_library(decima_native SHARED
         source/Decima/Core/RTTI.cpp
+        source/Export/Exporter.cpp
+        source/Export/IdaExporter.cpp
         source/Util/Offsets.cpp
+        source/Dumper.cpp
         source/XUtil.cpp
         source/exports.c
         source/main.cpp
 )
 
 target_include_directories(decima_native PRIVATE source libs/detours/src)
-target_link_libraries(decima_native PRIVATE detours)
+target_link_libraries(decima_native PRIVATE detours pattern16)
 set_target_properties(decima_native PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 IF (NOT ${GAME_ROOT_DIRECTORY} STREQUAL "")

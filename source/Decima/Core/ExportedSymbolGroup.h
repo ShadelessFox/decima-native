@@ -13,7 +13,12 @@ struct ExportedSymbol {
         Atom = 0x0,
         Enum = 0x1,
         Class = 0x02,
+        Struct = 0x03,
+        Typedef = 0x04,
         Function = 0x5,
+        Variable = 0x6,
+        Container = 0x7,
+        Reference = 0x8
     };
 
     struct TypeInfo {
@@ -61,13 +66,13 @@ public:
 
 struct ExportedSymbols {
     Array<ExportedSymbolGroup *> mGroups;
-    Array<RTTIClass *> field_10;
-    Array<RTTIClass *> field_20;
-    Array<RTTIClass *> field_30;
+    Array<RTTICompound *> field_10;
+    Array<RTTICompound *> field_20;
+    Array<RTTICompound *> field_30;
     HashMap<uint32_t, const ExportedSymbol *> mAllSymbols;
     HashMap<String, const ExportedSymbol *> mTypeSymbols;
 
     static const ExportedSymbols &Get() {
-        return *Offsets::ResolveID<"ExportedSymbols::sExportedSymbols", ExportedSymbols *>();
+        return *Offsets::ResolveID<"ExportedSymbols::Instance", ExportedSymbols *>();
     }
 };

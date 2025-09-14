@@ -13,14 +13,14 @@ String RTTI::ToString(const void *value) const {
 }
 
 bool RTTI::FromString(void *inObject, const String &inString) const {
-    if (auto compound = AsClass(); compound) {
+    if (auto compound = AsCompound()) {
         return compound->mFromString && compound->mFromString(inString, static_cast<RTTIObject *>(inObject));
     }
     if (auto atom = AsAtom(); atom) {
         return atom->mFromString && atom->mFromString(inString, inObject);
     }
     if (auto container = AsContainer(); container) {
-        return container->mContainerInfo->mFromString && container->mContainerInfo->mFromString(inString, *container, inObject);
+        return container->mContainerType->mFromString && container->mContainerType->mFromString(inString, *container, inObject);
     }
     if (auto _enum = AsEnum(); _enum) {
         for (auto i = 0; i < _enum->mNumValues; i++) {

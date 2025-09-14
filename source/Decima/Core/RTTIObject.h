@@ -4,7 +4,7 @@
 
 class RTTIObject {
 public:
-    virtual const RTTIClass *GetRTTI() const = 0;
+    virtual const RTTICompound *GetRTTI() const = 0;
 
     virtual ~RTTIObject() = 0;
 
