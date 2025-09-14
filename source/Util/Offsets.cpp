@@ -1,8 +1,10 @@
 #include <Windows.h>
+
 #include <unordered_map>
 #include <stdexcept>
+#include <print>
 
-#include "Offsets.h"
+#include "Util/Offsets.h"
 #include "XUtil.h"
 
 namespace Offsets {
@@ -55,6 +57,8 @@ namespace Offsets {
         if (found != OffsetMapping.end())
             throw std::runtime_error("Trying to map an address that was previously mapped");
 
+        std::print("Mapped {} to address {}\n", ID, reinterpret_cast<void *>(Offset));
+
         OffsetMapping.emplace(hash, Offset);
     }
 
@@ -76,4 +80,12 @@ namespace Offsets {
         return OffsetMapping.at(IDHash);
     }
 
+    uintptr_t OffsetFromInstruction(const char *Signature, uint32_t Add) {
+        auto [moduleBase, moduleEnd] = GetModule();
+        auto addr = XUtil::FindPattern(moduleBase, moduleEnd - moduleBase, Signature);
+        if (!addr)
+            return addr;
+        auto relOffset = *reinterpret_cast<int32_t *>(addr + Add) + sizeof(int32_t);
+        return addr + Add + relOffset - moduleBase;
+    }
 }

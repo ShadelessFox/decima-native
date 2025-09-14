@@ -9,6 +9,32 @@
             </ArrayItems>
         </Expand>
     </Type>
+    <Type Name="HashMap&lt;*&gt;">
+        <DisplayString>{{ size = {mSize} }}</DisplayString>
+        <Expand>
+            <CustomListItems>
+                <Variable Name="i" InitialValue="0"/>
+                <Variable Name="n" InitialValue="mSize"/>
+                <Size>mSize</Size>
+                <Loop>
+                    <Break Condition="n == 0"/>
+                    <If Condition="mEntries[i].mHash != 0">
+                        <!-- Bucket is populated -->
+                        <Exec>n--</Exec>
+                        <Item Name="{mEntries[i].mValue.first}">mEntries[i]</Item>
+                    </If>
+                    <Exec>i++</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+    <Type Name="HashMap&lt;*&gt;::Entry">
+        <DisplayString>{mValue.second}</DisplayString>
+        <Expand>
+            <Item Name="[key]">mValue.first</Item>
+            <Item Name="[value]">mValue.second</Item>
+        </Expand>
+    </Type>
     <Type Name="String">
         <DisplayString>{mData}</DisplayString>
         <Expand>

@@ -9,19 +9,8 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DWIN32_EXTRA_LE
 add_subdirectory(libs)
 
 add_library(decima_native SHARED
-        libs/detours/src/disolia64.cpp
-        libs/detours/src/disolx64.cpp
-        libs/detours/src/detours.cpp
-        libs/detours/src/disolx86.cpp
-        libs/detours/src/disolarm.cpp
-        libs/detours/src/creatwth.cpp
-        libs/detours/src/disolarm64.cpp
-        libs/detours/src/image.cpp
-        libs/detours/src/disasm.cpp
-        libs/detours/src/modules.cpp
-
-        source/Core/RTTI.cpp
-        source/Offsets.cpp
+        source/Decima/Core/RTTI.cpp
+        source/Util/Offsets.cpp
         source/XUtil.cpp
         source/exports.c
         source/main.cpp

@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "Core/Filename.h"
-#include "Core/FileSystem.h"
-#include "PCore/Array.h"
+#include "Decima/Core/Filename.h"
+#include "Decima/Core/FileSystem.h"
+#include "Decima/PCore/Array.h"
 
 class FileDevice {
 public:

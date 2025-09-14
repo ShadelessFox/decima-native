@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Core/RTTIObject.h"
-#include "PCore/UUID.h"
-#include "Offsets.h"
+#include "Decima/Core/RTTIObject.h"
+#include "Decima/PCore/UUID.h"
+#include "Util/Offsets.h"
 
 class RTTIRefObject : public RTTIObject {
 public:

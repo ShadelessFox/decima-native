@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/RTTIRefObject.h"
+#include "Decima/Core/RTTIRefObject.h"
 
 template<typename T>
     requires (std::is_base_of_v<RTTIRefObject, T>)

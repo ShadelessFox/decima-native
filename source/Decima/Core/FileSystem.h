@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "Core/Filename.h"
-#include "PCore/Array.h"
-#include "Offsets.h"
+#include "Decima/Core/Filename.h"
+#include "Decima/PCore/Array.h"
+#include "Util/Offsets.h"
 
 namespace FileSystem {
     struct FileEntry {

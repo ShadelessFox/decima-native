@@ -5,14 +5,14 @@
 #include <Windows.h>
 #include <detours.h>
 
-#include "Offsets.h"
+#include "Util/Offsets.h"
 
-#include "PCore/Array.h"
-#include "PCore/Ref.h"
-#include "PCore/String.h"
-#include "Core/RTTIRefObject.h"
-#include "Core/FileSystem.h"
-#include "Core/FileDevice.h"
+#include "Decima/PCore/Array.h"
+#include "Decima/PCore/Ref.h"
+#include "Decima/PCore/String.h"
+#include "Decima/Core/RTTIRefObject.h"
+#include "Decima/Core/FileSystem.h"
+#include "Decima/Core/FileDevice.h"
 
 #include <print>
 
@@ -94,6 +94,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID *reserved) {
         freopen("CON", "w", stdout);
 
         // @formatter:off
+        Offsets::MapAddress("ExportedSymbols::sExportedSymbols", Offsets::OffsetFromInstruction("48 89 35 ? ? ? ? 8D 5E 03 0F 1F 44 00 00 48 8B CF E8 ? ? ? ? 48 ", 3) - 8);
+
         Offsets::MapSignature("CoreFileManager::Constructor", "40 53 48 83 EC 20 48 8D 05 ? ? ? ? 48 89 51 08 48 89 01 48 8B D9 48 83 C1 10 FF 15 ? ? ? ? 48 8D 4B 18 FF 15 ? ? ? ? 33 C0");
         Offsets::MapSignature("CoreFileManager::RegisterEventListener", "48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 20 48 8D 59 18 48 8B F9 48 8B CB 48 8B F2 FF 15 ? ? ? ? 84 C0 75 09 48 8B CB FF 15 ? ? ? ? 48 8D 4F 28 48 8B D6 E8");
         Offsets::MapSignature("RTTIRefObject::DecrementRef", "40 53 48 83 EC 20 48 8B D9 B8 ? ? ? ? F0 0F C1 41 ? 25 ? ? ? ? 83 F8 01 75 34 8B 41");

@@ -4,7 +4,7 @@
 #include <functional>
 #include <iterator>
 
-#include "Offsets.h"
+#include "Util/Offsets.h"
 
 template<typename T, bool Const, typename PtrType = std::conditional_t<Const, const T *, T *>>
 class ArrayIterator {
