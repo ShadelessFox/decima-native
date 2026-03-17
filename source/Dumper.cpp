@@ -23,6 +23,7 @@
 #include <set>
 #include <string>
 #include <print>
+#include <ranges>
 
 namespace nx {
     INxLog *INxLog::Instance() {
@@ -183,16 +184,28 @@ static void (*RTTIFactory_RegistersSymbols)(void *);
 static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
     RTTIFactory_RegistersSymbols(inUnk);
 
-    static auto registered = []() {
-        for (auto &[symbol, hash]: ExportedSymbols::Get().mAllSymbols) {
+    static auto registered = [] {
+        for (auto &[symbol, _]: ExportedSymbols::Get().mAllSymbols) {
             if (symbol->mKind == ExportedSymbol::Kind::Function) {
                 Offsets::MapAddress(symbol->mName, reinterpret_cast<uintptr_t>(symbol->mLanguage[0].mAddress));
             }
         }
         return true;
     }();
+    (void) registered;
 
-    // Dumper::Dump();
+    Dumper::Dump();
+    ExitProcess(0);
+}
+
+static bool (*RTTIFactory_Register)(void *, RTTI &);
+
+static bool RTTIFactory_Register_Hook(void *self, RTTI &inType) {
+    if (RTTIFactory_Register(self, inType)) {
+        std::println("Registered type {} ({})", inType.Name(), inType.KindName());
+        return true;
+    }
+    return false;
 }
 
 static void (*GraphProgramInstance_Evaluate)(GraphProgramInstance *);
@@ -232,12 +245,14 @@ void Dumper::Attach() {
     RTTIFactory_RegistersSymbols = Offsets::ResolveID<"RTTIFactory::RegisterSymbols", decltype(RTTIFactory_RegistersSymbols)>();
     GraphProgramInstance_Evaluate = Offsets::ResolveID<"GraphProgramInstance::Evaluate", decltype(GraphProgramInstance_Evaluate)>();
     NxLogImpl_Startup = Offsets::ResolveID<"NxLogImpl::Startup", decltype(NxLogImpl_Startup)>();
+    RTTIFactory_Register = Offsets::ResolveID<"RTTIFactory::RegisterType", decltype(RTTIFactory_Register)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
     // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     // DetourAttach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
+    // DetourAttach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_Register), static_cast<PVOID>(RTTIFactory_Register_Hook));
     DetourTransactionCommit();
 }
 
@@ -246,7 +261,8 @@ void Dumper::Detach() {
     DetourUpdateThread(GetCurrentThread());
     // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     // DetourDetach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
+    // DetourDetach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_Register), static_cast<PVOID>(RTTIFactory_Register_Hook));
     DetourTransactionCommit();
 }
 
@@ -266,6 +282,4 @@ void Dumper::Dump() {
     puts("Exporting types...");
     JsonExporter("dump/hfw").Export(types);
     IdaExporter("dump/hfw").Export(types);
-
-    ExitProcess(0);
 }

@@ -13,26 +13,14 @@ void JsonExporter::Export(const std::span<const RTTI *> &inTypes) {
 }
 
 void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
-    if (const auto as_container = inType.AsContainer(); as_container) {
-        if (mContainerTypes.contains(as_container->mContainerType->mTypeName))
-            return;
-        mContainerTypes.emplace(as_container->mContainerType->mTypeName);
-    }
-
-    if (const auto as_pointer = inType.AsPointer(); as_pointer) {
-        if (mPointerTypes.contains(as_pointer->mPointerType->mTypeName))
-            return;
-        mPointerTypes.emplace(as_pointer->mPointerType->mTypeName);
-    }
-
-    auto name = inType.BaseName();
+    auto name = inType.Name();
     auto kind = inType.KindName();
     auto ctx = inCtx;
 
-    JsonNameObject(ctx, name.c_str());
-    JsonNameValueStr(ctx, "kind", kind.c_str());
+    JsonNameObject(ctx, name.data());
+    JsonNameValueStr(ctx, "kind", kind.data());
 
-    if (auto as_class = inType.AsCompound(); as_class) {
+    if (auto as_class = inType.AsCompound()) {
         JsonNameValueNum(ctx, "version", as_class->mVersion);
         JsonNameValueNum(ctx, "flags", as_class->mFlags);
 
@@ -40,8 +28,7 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
             JsonNameArray(ctx, "messages");
 
             for (const auto &message: as_class->MessageHandlers()) {
-                auto message_type = message.mMessage->Name();
-                JsonValueStr(ctx, message_type.c_str());
+                JsonValueStr(ctx, message.mMessage->Name().data());
             }
 
             JsonEndArray(ctx);
@@ -51,10 +38,8 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
             JsonNameArray(ctx, "bases");
 
             for (const auto &base: as_class->Bases()) {
-                auto base_type = base.mType->Name();
-
                 JsonBeginCompactObject(ctx);
-                JsonNameValueStr(ctx, "name", base_type.c_str());
+                JsonNameValueStr(ctx, "type", base.mType->Name().data());
                 JsonNameValueNum(ctx, "offset", base.mOffset);
                 JsonEndCompactObject(ctx);
             }
@@ -75,27 +60,27 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
 
                 JsonBeginCompactObject(ctx);
                 JsonNameValueStr(ctx, "name", attr.mName);
-                JsonNameValueStr(ctx, "type", attr.mType->Name().c_str());
+                JsonNameValueStr(ctx, "type", attr.mType->Name().data());
                 JsonNameValueNum(ctx, "offset", attr.mOffset);
                 JsonNameValueNum(ctx, "flags", attr.mFlags);
                 if (attr.mMinValue)
                     JsonNameValueStr(ctx, "min", attr.mMinValue);
                 if (attr.mMaxValue)
                     JsonNameValueStr(ctx, "max", attr.mMaxValue);
-                if (attr.mGetter)
+                if (attr.mGetter || attr.mSetter)
                     JsonNameValueBool(ctx, "property", 1);
                 JsonEndCompactObject(ctx);
             }
 
             JsonEndArray(ctx);
         }
-    } else if (auto as_enum = inType.AsEnum(); as_enum) {
+    } else if (auto as_enum = inType.AsEnum()) {
         JsonNameValueNum(ctx, "size", as_enum->mSize);
         JsonNameArray(ctx, "values");
 
         for (auto &value: as_enum->Values()) {
             JsonBeginCompactObject(ctx);
-            JsonNameValueNum(ctx, "value", value.mValue);
+            JsonNameValueNum(ctx, "value", static_cast<int>(value.mValue));
             JsonNameValueStr(ctx, "name", value.mName);
 
             if (value.mAliases[0]) {
@@ -109,16 +94,14 @@ void JsonExporter::Export(const RTTI &inType, JsonContext *inCtx) {
         }
 
         JsonEndArray(ctx);
-    } else if (auto as_atom = inType.AsAtom(); as_atom) {
-        auto base_type = as_atom->mParentType->Name();
-
-        JsonNameValueStr(ctx, "base_type", base_type.c_str());
-        // JsonNameValueBool(ctx, "simple", as_atom->mSimple);
-    } else if (auto as_container = inType.AsContainer(); as_container) {
-        const auto& container = *as_container->mContainerType;
-        // JsonNameValueBool(ctx, "array", container.mArray);
-        // if (!container.mConstructor)
-        //     JsonNameValueNum(ctx, "size", container.mSize / container.mAlignment);
+    } else if (auto as_atom = inType.AsAtom()) {
+        JsonNameValueStr(ctx, "base_type", as_atom->mParentType->Name().data());
+    } else if (auto as_container = inType.AsContainer()) {
+        JsonNameValueStr(ctx, "type", as_container->mContainerType->mTypeName);
+        JsonNameValueStr(ctx, "item_type", as_container->mItemType->Name().data());
+    } else if (auto as_pointer = inType.AsPointer()) {
+        JsonNameValueStr(ctx, "type", as_pointer->mPointerType->mTypeName);
+        JsonNameValueStr(ctx, "item_type", as_pointer->mItemType->Name().data());
     }
 
     JsonEndObject(ctx);

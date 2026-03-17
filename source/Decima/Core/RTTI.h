@@ -48,11 +48,9 @@ struct RTTI {
     RTTI(const RTTI &) = delete;
     RTTI(RTTI&&) = delete;
 
-    [[nodiscard]] std::string BaseName() const;
+    [[nodiscard]] std::string_view Name() const;
 
-    [[nodiscard]] std::string Name() const;
-
-    [[nodiscard]] std::string KindName() const;
+    [[nodiscard]] std::string_view KindName() const;
 
     [[nodiscard]] const RTTIAtom *AsAtom() const;
 
@@ -65,6 +63,8 @@ struct RTTI {
     [[nodiscard]] const RTTIContainer *AsContainer() const;
 
     [[nodiscard]] const RTTIPod *AsPOD() const;
+
+    [[nodiscard]] bool IsKindOf(std::string_view inName) const;
 };
 
 #pragma pack(pop)
@@ -202,7 +202,7 @@ struct RTTICompound : RTTI {
 
     [[nodiscard]] auto Attrs() const { return std::span{mAttrs, mNumAttrs}; }
 
-    [[nodiscard]] auto Attrs() { return std::span{mAttrs, mNumAttrs}; }
+    [[nodiscard]] auto OrderedAttrs() const { return std::span{mOrderedAttrs, mNumOrderedAttrs}; }
 
     // [[nodiscard]] auto Functions() const { return std::span{mFunctions, mNumFunctions}; }
 
@@ -236,7 +236,7 @@ struct RTTIContainer : RTTI {
         const char *mTypeName;
         uint16_t mSize;
         uint8_t mAlignment;
-        uint8_t mArray;
+        bool mArray;
         const void *mConstructor;
         const void *mDestructor;
         // ...

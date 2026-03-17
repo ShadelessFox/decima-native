@@ -1,7 +1,5 @@
 #pragma once
 
-#include <set>
-
 #include "Exporter.h"
 #include "Util/json.h"
 
@@ -14,7 +12,4 @@ public:
 
 private:
     void Export(const RTTI &inType, JsonContext *inCtx);
-
-    std::set<std::string> mContainerTypes;
-    std::set<std::string> mPointerTypes;
 };
