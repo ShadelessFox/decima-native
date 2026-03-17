@@ -59,6 +59,8 @@ void IdaExporter::Export(const std::span<const RTTI *> &inTypes) {
 // while also allowing references from the ".pdata" and ".rdata" segments.
 // Any other references make [inFunction] not unique.
 static is_unique_function(inType, inFunction) {
+    if (1)
+        return 0;
     auto ref = get_first_dref_to(inFunction);
     while (ref != BADADDR) {
         auto seg = get_segm_name(ref);
@@ -103,7 +105,7 @@ void IdaExporter::ExportDeclarations(const RTTI &inType) {
     const auto type_name = IDATypeName(inType);
     const auto kind_name = IdaKindName(inType);
 
-    fprintf(mFile, "\n\t// %s %s\n", inType.KindName().c_str(), inType.Name().c_str());
+    fprintf(mFile, "\n\t// %s %s\n", inType.KindName().data(), inType.Name().data());
     fprintf(mFile, "\tset_name(%#llx, \"RTTI_%s\", NAME_FLAGS);\n", rebase(&inType), type_name.c_str());
     fprintf(mFile, "\tapply_type(%#llx, \"%s\");\n", rebase(&inType), kind_name.c_str());
 

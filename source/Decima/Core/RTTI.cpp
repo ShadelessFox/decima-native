@@ -2,7 +2,7 @@
 
 #include <format>
 
-const RTTIAtom * RTTI::AsAtom() const {
+const RTTIAtom *RTTI::AsAtom() const {
     switch (mKind) {
         case RTTIKind::Atom:
             return reinterpret_cast<const RTTIAtom *>(this);
@@ -11,7 +11,7 @@ const RTTIAtom * RTTI::AsAtom() const {
     }
 }
 
-const RTTICompound * RTTI::AsCompound() const {
+const RTTICompound *RTTI::AsCompound() const {
     switch (mKind) {
         case RTTIKind::Compound:
             return reinterpret_cast<const RTTICompound *>(this);
@@ -20,7 +20,7 @@ const RTTICompound * RTTI::AsCompound() const {
     }
 }
 
-const RTTIEnum * RTTI::AsEnum() const {
+const RTTIEnum *RTTI::AsEnum() const {
     switch (mKind) {
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:
@@ -31,7 +31,7 @@ const RTTIEnum * RTTI::AsEnum() const {
     }
 }
 
-const RTTIPointer * RTTI::AsPointer() const {
+const RTTIPointer *RTTI::AsPointer() const {
     switch (mKind) {
         case RTTIKind::Pointer:
             return reinterpret_cast<const RTTIPointer *>(this);
@@ -40,7 +40,7 @@ const RTTIPointer * RTTI::AsPointer() const {
     }
 }
 
-const RTTIContainer * RTTI::AsContainer() const {
+const RTTIContainer *RTTI::AsContainer() const {
     switch (mKind) {
         case RTTIKind::Container:
             return reinterpret_cast<const RTTIContainer *>(this);
@@ -49,7 +49,7 @@ const RTTIContainer * RTTI::AsContainer() const {
     }
 }
 
-const RTTIPod * RTTI::AsPOD() const {
+const RTTIPod *RTTI::AsPOD() const {
     switch (mKind) {
         case RTTIKind::POD:
             return reinterpret_cast<const RTTIPod *>(this);
@@ -58,33 +58,13 @@ const RTTIPod * RTTI::AsPOD() const {
     }
 }
 
-[[nodiscard]] std::string RTTI::BaseName() const {
+[[nodiscard]] std::string_view RTTI::Name() const {
     switch (mKind) {
         case RTTIKind::Atom:
             return reinterpret_cast<const RTTIAtom *>(this)->mTypeName;
         case RTTIKind::Pointer:
         case RTTIKind::Container:
-            return reinterpret_cast<const RTTIContainer *>(this)->mContainerType->mTypeName;
-        case RTTIKind::Enum:
-        case RTTIKind::EnumFlags:
-        case RTTIKind::EnumBitSet:
-            return reinterpret_cast<const RTTIEnum *>(this)->mTypeName;
-        case RTTIKind::Compound:
-            return reinterpret_cast<const RTTICompound *>(this)->mTypeName;
-        default:
-            throw std::runtime_error("Unreachable code");
-    }
-}
-
-[[nodiscard]] std::string RTTI::Name() const {
-    switch (mKind) {
-        case RTTIKind::Atom:
-            return reinterpret_cast<const RTTIAtom *>(this)->mTypeName;
-        case RTTIKind::Pointer:
-        case RTTIKind::Container: {
-            const auto container = reinterpret_cast<const RTTIContainer *>(this);
-            return std::format("{}<{}>", container->mContainerType->mTypeName, container->mItemType->Name());
-        }
+            return reinterpret_cast<const RTTIContainer *>(this)->mTypeName;
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:
         case RTTIKind::EnumBitSet:
@@ -92,16 +72,16 @@ const RTTIPod * RTTI::AsPOD() const {
         case RTTIKind::Compound:
             return reinterpret_cast<const RTTICompound *>(this)->mTypeName;
         case RTTIKind::POD:
-            return reinterpret_cast<const RTTIPod*>(this)->mTypeName;
+            return reinterpret_cast<const RTTIPod *>(this)->mTypeName;
         default:
             throw std::runtime_error("Unreachable code");
     }
 }
 
-[[nodiscard]] std::string RTTI::KindName() const {
+[[nodiscard]] std::string_view RTTI::KindName() const {
     switch (mKind) {
         case RTTIKind::Atom:
-            return "primitive";
+            return "atom";
         case RTTIKind::Pointer:
             return "pointer";
         case RTTIKind::Container:
@@ -109,7 +89,7 @@ const RTTIPod * RTTI::AsPOD() const {
         case RTTIKind::Enum:
             return "enum";
         case RTTIKind::Compound:
-            return "class";
+            return "compound";
         case RTTIKind::EnumFlags:
             return "enum flags";
         case RTTIKind::EnumBitSet:
@@ -119,4 +99,15 @@ const RTTIPod * RTTI::AsPOD() const {
         default:
             throw std::runtime_error("Unreachable code");
     }
+}
+
+bool RTTI::IsKindOf(std::string_view inName) const {
+    if (Name() == inName)
+        return true;
+    if (mKind == RTTIKind::Compound) {
+        for (const auto &base: reinterpret_cast<const RTTICompound *>(this)->Bases())
+            if (base.mType->IsKindOf(inName))
+                return true;
+    }
+    return false;
 }
