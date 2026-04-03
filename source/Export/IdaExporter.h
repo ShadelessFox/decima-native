@@ -19,4 +19,7 @@ private:
     void ExportFunctions(const RTTI &);
 
     void ExportSymbols(const ExportedSymbolGroup &);
+    
+    std::set<const RTTIPointer::Type *> mPointerTypes;
+    std::set<const RTTIContainer::Type *> mContainerTypes;
 };
