@@ -20,7 +20,7 @@ static BOOL WINAPI CtrlHandler([[maybe_unused]] DWORD fdwCtrlType) {
         SetConsoleCtrlHandler(CtrlHandler, TRUE);
         freopen("CON", "w", stdout);
 
-        Overlay::Attach();
+        // Overlay::Attach();
         Dumper::Attach();
     }
 

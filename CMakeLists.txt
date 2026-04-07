@@ -3,7 +3,7 @@ project(decima_native)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(GAME_PATH "E:\\SteamLibrary\\steamapps\\common\\Horizon Forbidden West Complete Edition")
+set(GAME_PATH "E:\\SteamLibrary\\steamapps\\common\\DEATH STRANDING 2 - ON THE BEACH")
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DWIN32_EXTRA_LEAN -DRTTI_STANDALONE)
 add_subdirectory(libs)
@@ -12,6 +12,7 @@ add_library(decima_native SHARED
         source/Decima/Core/GGUUID.cpp
         source/Decima/Core/RTTI.cpp
         source/Exporter/Exporter.cpp
+        source/Exporter/AttrExporter.cpp
         source/Exporter/IdaExporter.cpp
         source/Exporter/JsonExporter.cpp
         source/Util/json.cpp

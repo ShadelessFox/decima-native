@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <string_view>
 
 
 #ifdef __cplusplus
@@ -64,7 +65,7 @@
 struct JsonContext {
     FILE *stream;
     int compact;
-    const char *name;
+    std::string_view name;
     size_t index;
     int scopes[32];
 };
@@ -78,12 +79,12 @@ enum JsonType {
 struct JsonValue {
     enum JsonType type;
     union {
-        const char *string;
+        std::string_view string;
         int64_t integer;
     };
 
 #ifdef __cplusplus
-    static JsonValue OfString(const char* inValue) {
+    static JsonValue OfString(const std::string_view inValue) {
         JsonValue value{};
         value.type = JsonType_String;
         value.string = inValue;
@@ -116,7 +117,7 @@ void JsonBeginArray(struct JsonContext *ctx);
 
 void JsonEndArray(struct JsonContext *ctx);
 
-void JsonName(struct JsonContext *ctx, const char *name);
+void JsonName(struct JsonContext *ctx, std::string_view name);
 
 void JsonValue(struct JsonContext *ctx, struct JsonValue value);
 

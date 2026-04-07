@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cstring>
 
+using namespace std::string_view_literals;
+
 enum JsonScope {
     JsonScope_DanglingName,
     JsonScope_EmptyArray,
@@ -24,10 +26,9 @@ static void NewLine(struct JsonContext *ctx) {
     }
 }
 
-static void WriteString(struct JsonContext *ctx, const char *string) {
+static void WriteString(struct JsonContext *ctx, std::string_view string) {
     putc('"', ctx->stream);
-    for (size_t i = 0, len = strlen(string); i < len; i++) {
-        char ch = string[i];
+    for (char ch : string) {
         if (ch == '"' || ch == '\\')
             putc('\\', ctx->stream);
         putc(ch, ctx->stream);
@@ -92,7 +93,7 @@ static void Close(struct JsonContext *ctx, enum JsonScope empty, enum JsonScope 
     enum JsonScope scope = static_cast<JsonScope>(ctx->scopes[ctx->index - 1]);
 
     assert(scope == empty || scope == nonempty);
-    assert(ctx->name == NULL);
+    assert(ctx->name.empty());
 
     ctx->index--;
 
@@ -103,10 +104,10 @@ static void Close(struct JsonContext *ctx, enum JsonScope empty, enum JsonScope 
 }
 
 static void WriteDeferredName(struct JsonContext *ctx) {
-    if (ctx->name != NULL) {
+    if (!ctx->name.empty()) {
         BeforeName(ctx);
         WriteString(ctx, ctx->name);
-        ctx->name = NULL;
+        ctx->name = ""sv;
     }
 }
 
@@ -114,7 +115,7 @@ void JsonInit(struct JsonContext *ctx, FILE *stream) {
     ctx->stream = stream;
     ctx->compact = 0;
     ctx->index = 0;
-    ctx->name = NULL;
+    ctx->name = ""sv;
 
     Push(ctx, JsonScope_EmptyDocument);
 }
@@ -141,8 +142,8 @@ void JsonCompact(struct JsonContext *ctx, int compact) {
     ctx->compact = compact;
 }
 
-void JsonName(struct JsonContext *ctx, const char *name) {
-    assert(ctx->name == NULL);
+void JsonName(struct JsonContext *ctx, std::string_view name) {
+    assert(ctx->name.empty());
     assert(ctx->index > 0);
 
     ctx->name = name;

@@ -8,8 +8,8 @@
 #include "Util/Assert.h"
 
 class RTTIObject;
-
 class RTTIRefObject;
+class String;
 
 enum class RTTIKind : uint8_t {
     Atom,
@@ -19,7 +19,7 @@ enum class RTTIKind : uint8_t {
     Compound,
     EnumFlags,
     POD,
-    EnumBitSet
+    BitSet
 };
 
 enum RTTIFlags : uint8_t {
@@ -31,12 +31,17 @@ struct RTTI;
 struct RTTIAtom;
 struct RTTICompound;
 struct RTTIEnum;
+struct RTTIBitSet;
 struct RTTIPointer;
 struct RTTIContainer;
 struct RTTIPod;
 
 typedef RTTI *pRTTI;
 typedef const RTTI *pcRTTI;
+
+using RTTIConstructorFunc = void(*)(const RTTI &, void *);
+using RTTIDestructorFunc = void(*)(const RTTI &, void *);
+using RTTIToStringFunc = bool(*)(void*, String&);
 
 #pragma pack(push, 1)
 
@@ -46,7 +51,8 @@ struct RTTI {
     RTTIFlags mFactoryFlags;
 
     RTTI(const RTTI &) = delete;
-    RTTI(RTTI&&) = delete;
+
+    RTTI(RTTI &&) = delete;
 
     [[nodiscard]] std::string_view Name() const;
 
@@ -57,6 +63,8 @@ struct RTTI {
     [[nodiscard]] const RTTICompound *AsCompound() const;
 
     [[nodiscard]] const RTTIEnum *AsEnum() const;
+
+    [[nodiscard]] const RTTIBitSet *AsBitSet() const;
 
     [[nodiscard]] const RTTIPointer *AsPointer() const;
 
@@ -78,12 +86,12 @@ struct RTTIAtom : RTTI {
     const char *mTypeName;
     const RTTIAtom *mParentType;
     const void *mFromString;
-    const void *mToString;
+    RTTIToStringFunc mToString;
     const void *mUnk30;
     const void *mCopy;
     const void *mEquals;
-    const void *mConstructor;
-    const void *mDestructor;
+    RTTIConstructorFunc mConstructor;
+    RTTIDestructorFunc mDestructor;
     const void *mAssignWithEndian;
     const void *mAssign;
     const void *mGetSize;
@@ -113,6 +121,15 @@ struct RTTIEnum : RTTI {
 };
 
 assert_size(RTTIEnum, 0x28);
+
+struct RTTIBitSet : RTTI {
+    uint8_t mSize;
+    uint8_t mAlignment;
+    const RTTI *mRepresentationType;
+    const char *mTypeName;
+};
+
+assert_size(RTTIBitSet, 0x18);
 
 struct RTTIBase {
     const RTTICompound *mType;
@@ -167,27 +184,25 @@ assert_size(RTTIFunction, 0x20);
 
 struct RTTICompound : RTTI {
     uint8_t mNumBases;
-    uint8_t mNumAttrs;
-    // uint8_t mNumFunctions;
     uint8_t mNumMessageHandlers;
     uint8_t mNumMessageOrderEntries;
     uint8_t _mPad09;
+    uint8_t mNumAttrs;
     uint32_t mVersion;
     uint32_t mSize;
     uint16_t mAlignment;
     uint16_t mFlags;
-    const void *mConstructor;
-    const void *mDestructor;
+    RTTIConstructorFunc mConstructor;
+    RTTIDestructorFunc mDestructor;
     const void *mFromString;
     const void *mUnk30;
-    const void *mToString;
+    RTTIToStringFunc mToString;
     const char *mTypeName;
     // uint32_t mTypeNameCrc;
     const RTTI *mNextType;
     const RTTI *mPrevType;
     const RTTIBase *mBases;
     const RTTIAttr *mAttrs;
-    // const RTTIFunction *mFunctions;
     const RTTIMessageHandler *mMessageHandlers;
     const RTTIMessageOrderEntry *mMessageOrderEntries;
     const void *mGetExportedSymbols;

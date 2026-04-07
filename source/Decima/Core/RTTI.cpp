@@ -24,8 +24,16 @@ const RTTIEnum *RTTI::AsEnum() const {
     switch (mKind) {
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:
-        case RTTIKind::EnumBitSet:
             return reinterpret_cast<const RTTIEnum *>(this);
+        default:
+            return nullptr;
+    }
+}
+
+const RTTIBitSet *RTTI::AsBitSet() const {
+    switch (mKind) {
+        case RTTIKind::BitSet:
+            return reinterpret_cast<const RTTIBitSet *>(this);
         default:
             return nullptr;
     }
@@ -67,8 +75,9 @@ const RTTIPod *RTTI::AsPOD() const {
             return reinterpret_cast<const RTTIContainer *>(this)->mTypeName;
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:
-        case RTTIKind::EnumBitSet:
             return reinterpret_cast<const RTTIEnum *>(this)->mTypeName;
+        case RTTIKind::BitSet:
+            return reinterpret_cast<const RTTIBitSet *>(this)->mTypeName;
         case RTTIKind::Compound:
             return reinterpret_cast<const RTTICompound *>(this)->mTypeName;
         case RTTIKind::POD:
@@ -92,7 +101,7 @@ const RTTIPod *RTTI::AsPOD() const {
             return "compound";
         case RTTIKind::EnumFlags:
             return "enum flags";
-        case RTTIKind::EnumBitSet:
+        case RTTIKind::BitSet:
             return "enum bitset";
         case RTTIKind::POD:
             return "pod";

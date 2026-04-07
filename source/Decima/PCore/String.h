@@ -25,27 +25,8 @@ public:
     }
 
     ~String() {
-        static auto sEmptyBuffer = Offsets::ResolveID<"String::sEmptyBuffer", Buffer *>();
-
-        if (auto &buf = buffer(); &buf != sEmptyBuffer) {
-            if (auto refs = _InterlockedExchangeAdd(reinterpret_cast<volatile long*>(&buf.mRefCount), -1) & 0x7FFFFFFF; refs == 1) {
-                Offsets::CallID<"String::Buffer::~Buffer", void(*)(Buffer &)>(buf);
-            }
-        }
+        Offsets::CallID<"String::~String", void(*)(String *)>(this);
     }
-
-    /*
-    String(const String &rhs) : String() {
-        Offsets::CallID<"String::FromString", String *(*)(String *, const String &)>(this, rhs);
-    }
-
-    String &operator=(const String &rhs) {
-        if (this == &rhs)
-            return *this;
-        Offsets::CallID<"String::FromString", String *(*)(String *, const String &)>(this, rhs);
-        return *this;
-    };
-     */
 
     bool operator==(const char *rhs) const {
         return strcmp(mData, rhs) == 0;

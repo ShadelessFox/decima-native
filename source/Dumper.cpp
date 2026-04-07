@@ -13,6 +13,7 @@
 #include "Decima/Core/FactoryManager.h"
 #include "Decima/Core/GraphProgramResource.h"
 
+#include "Exporter/AttrExporter.h"
 #include "Exporter/JsonExporter.h"
 #include "Exporter/IdaExporter.h"
 
@@ -25,6 +26,8 @@
 #include <print>
 #include <ranges>
 
+using namespace std::string_view_literals;
+
 namespace nx {
     INxLog *INxLog::Instance() {
         return *Offsets::ResolveID<"NxLogImpl::Instance", NxLogImpl **>();
@@ -36,7 +39,7 @@ static auto TypeComparator = [](const RTTI *inFirst, const RTTI *inSecond) -> bo
         RTTIKind::Compound,
         RTTIKind::Enum,
         RTTIKind::EnumFlags,
-        RTTIKind::EnumBitSet,
+        RTTIKind::BitSet,
         RTTIKind::Atom,
         RTTIKind::Pointer,
         RTTIKind::Container,
@@ -119,6 +122,13 @@ static void ScanMemoryForTypes() {
             ) {
                 continue;
             }
+        } else if (auto enum_ = type->AsBitSet(); enum_) {
+            if (enum_->mSize == 0 ||
+                !IsValidPtr(enum_->mTypeName) ||
+                !IsValidPtr(enum_->mRepresentationType)
+            ) {
+                continue;
+            }
         } else if (auto container = type->AsContainer(); container) {
             if (!IsValidPtr(container->mItemType) ||
                 !IsValidPtr(container->mContainerType) ||
@@ -153,121 +163,62 @@ static void ScanMemoryForTypes() {
     }
 }
 
-static bool (*NxLogImpl_Startup)(nx::NxLogImpl *);
-
-static bool NxLogImpl_Startup_Hook(nx::NxLogImpl *log) {
-    auto vtbl = *reinterpret_cast<void ***>(log);
-
-    static auto NxLog_PrintA = reinterpret_cast<void(*)(nx::INxLog *, const char *)>(vtbl[7]);
-    static auto NxLog_PrintA_Hook = +[](nx::INxLog *inLog, const char *inText) {
-        NxLog_PrintA(inLog, inText);
-        std::print("{}", inText);
-    };
-
-    static auto NxLog_PrintLnA = reinterpret_cast<void(*)(nx::INxLog *, const char *)>(vtbl[8]);
-    static auto NxLog_PrintLnA_Hook = +[](nx::INxLog *inLog, const char *inText) {
-        NxLog_PrintLnA(inLog, inText);
-        std::print("{}\n", inText);
-    };
-
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
-    DetourAttach(reinterpret_cast<PVOID *>(&NxLog_PrintA), static_cast<PVOID>(NxLog_PrintA_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&NxLog_PrintLnA), static_cast<PVOID>(NxLog_PrintLnA_Hook));
-    DetourTransactionCommit();
-
-    return NxLogImpl_Startup(log);
-}
-
 static void (*RTTIFactory_RegistersSymbols)(void *);
 
 static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
     RTTIFactory_RegistersSymbols(inUnk);
 
-    static auto registered = [] {
-        for (auto &[symbol, _]: ExportedSymbols::Get().mAllSymbols) {
-            if (symbol->mKind == ExportedSymbol::Kind::Function) {
-                Offsets::MapAddress(symbol->mName, reinterpret_cast<uintptr_t>(symbol->mLanguage[0].mAddress));
-            }
-        }
-        return true;
-    }();
-    (void) registered;
+    // static auto registered = [] {
+    //     for (auto &[symbol, _]: ExportedSymbols::Get().mAllSymbols) {
+    //         if (symbol->mKind == ExportedSymbol::Kind::Function) {
+    //             Offsets::MapAddress(symbol->mName, reinterpret_cast<uintptr_t>(symbol->mLanguage[0].mAddress));
+    //         }
+    //     }
+    //     return true;
+    // }();
+    // (void) registered;
 
     Dumper::Dump();
     ExitProcess(0);
 }
 
-static bool (*RTTIFactory_Register)(void *, RTTI &);
-
-static bool RTTIFactory_Register_Hook(void *self, RTTI &inType) {
-    if (RTTIFactory_Register(self, inType)) {
-        std::println("Registered type {} ({})", inType.Name(), inType.KindName());
-        return true;
-    }
-    return false;
-}
-
-static void (*GraphProgramInstance_Evaluate)(GraphProgramInstance *);
-
-static void GraphProgramInstance_Evaluate_Hook(GraphProgramInstance *program) {
-    auto &entryPoint = program->Program->EntryPoints[0];
-
-    if (entryPoint.EntryPoint != "EntryPoint_Main_Theme_Music_Graph_4d0418bc2f5e06ab3ca104db27ab2d1c_0_Evaluate")
-        std::print("Evaluating {}\n", entryPoint.EntryPoint);
-
-    auto &inputBindings = program->InputParameterBindings[0];
-    auto &outputBindings = program->OutputParameterBindings[0];
-    auto &stateBindings = program->StateParameterBindings;
-    auto &dataBindings = program->ExposedDataBindings;
-
-    GraphProgramInstance_Evaluate(program);
-}
-
 void Dumper::Attach() {
     // @formatter:off
-    Offsets::MapAddress("RTTIFactory::sExportedSymbols", Offsets::OffsetFromInstruction("48 8B 3D ? ? ? ? 48 63 0D ? ? ? ? 40 88 6C 24 ? 48 89 7C 24 ? 48 8D 04 CF 48", 3) - 8);
-    Offsets::MapAddress("TrophySystem::Instance", Offsets::OffsetFromInstruction("48 89 1D ? ? ? ? E8 ? ? ? ? 48 8B 1D ? ? ? ? 48 8D 05 ? ? ? ? 48 8D 55 E0 48", 3));
-    Offsets::MapAddress("FactoryManager::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 48 89 54 24 ? 8B 42 F8 89 44 24 28 8B 42 F4 48 8D 54 24 ? 89 44 24 2C E8 ? ? ? ? 48 85 C0 74 0D 48 8B C8 E8", 3));
-    Offsets::MapAddress("GameModule::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 44 0F B6 C8 44 0F B6 C5 48 85 C9 75 15 E8 ? ? ? ?", 3));
-    Offsets::MapAddress("NxLogImpl::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 4C 8D 05 ? ? ? ? 48 8D 15 ? ? ? ? 48 8B 01 FF 50 48 48 8B 06 B2 01 48", 3));
+    Offsets::MapAddress("String::sEmptyBuffer", Offsets::OffsetFromInstruction("48 8D 35 ? ? ? ? 89 2D ? ? ? ? 48 8D 48 F0 48 3B CE 74 08", 3) + 8);
+    Offsets::MapSignature("String::~String", "48 8B 11 48 8D 05 ? ? ? ? 48 83 EA 10 48 3B D0 0F 84 ? ? ? ? B8");
 
-    Offsets::MapSignature("RTTIFactory::RegisterType", "40 55 53 56 48 8D 6C 24 ? 48 81 EC ? ? ? ? 0F B6 42 05 48 8B DA 48 8B");
-    Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89 9C 24");
-    Offsets::MapSignature("RTTIFactory::RegisterSymbols", "48 89 4C 24 ? 41 56 48 83 EC 50 48 89 5C 24 ? 48 8D 0D ? ? ? ? 48 89");
-    Offsets::MapSignature("StreamingGraphResource::ResolveTypeHashes", "48 89 5C 24 20 56 57 41 54 41 56 41 57 48 83 EC 20 65 48 8B 04 25 58");
-    Offsets::MapSignature("GraphProgramInstance::Evaluate", "48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 8B 41 40");
-    Offsets::MapSignature("NxLogImpl::Startup", "40 55 41 54 41 55 41 56 41 57 48 81 EC 90 00 00 00 48 8D 6C 24 20 48 89 9D A8 00 00 00 48 89");
-
-    Offsets::MapSignature("GameWorldTimeState::SetTimeOfDay", "C5 FA 10 59 20 C5 F8 57 C0 C5 F8 2F D0 76 33 C5 F8 2F CB 72 06 C5 F2 5C C3");
+    Offsets::MapAddress("FactoryManager::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 89 44 24 2C E8 ? ? ? ? 48 89 83 B0 00 00 00 48 83 C4 30 5B C3", 3));
+    Offsets::MapSignature("RTTIFactory::RegisterType", "48 89 54 24 10 55 56 57 48 8D 6C 24 F0 48 81 EC 10 01 00 00 0F B6 42");
+    Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89");
+    Offsets::MapSignature("RTTIFactory::RegisterSymbols", "48 89 4C 24 08 56 48 83 EC 70 48 89 5C 24 68 48 8D 0D ? ? ? ? 48 89");
     // @formatter:on
 
     RTTIFactory_RegistersSymbols = Offsets::ResolveID<"RTTIFactory::RegisterSymbols", decltype(RTTIFactory_RegistersSymbols)>();
-    GraphProgramInstance_Evaluate = Offsets::ResolveID<"GraphProgramInstance::Evaluate", decltype(GraphProgramInstance_Evaluate)>();
-    NxLogImpl_Startup = Offsets::ResolveID<"NxLogImpl::Startup", decltype(NxLogImpl_Startup)>();
-    RTTIFactory_Register = Offsets::ResolveID<"RTTIFactory::RegisterType", decltype(RTTIFactory_Register)>();
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    // DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
-    // DetourAttach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
-    // DetourAttach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
-    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_Register), static_cast<PVOID>(RTTIFactory_Register_Hook));
+    DetourAttach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourTransactionCommit();
 }
 
 void Dumper::Detach() {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    // DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
-    // DetourDetach(reinterpret_cast<PVOID *>(&GraphProgramInstance_Evaluate), static_cast<PVOID>(GraphProgramInstance_Evaluate_Hook));
-    // DetourDetach(reinterpret_cast<PVOID *>(&NxLogImpl_Startup), static_cast<PVOID>(NxLogImpl_Startup_Hook));
-    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_Register), static_cast<PVOID>(RTTIFactory_Register_Hook));
+    DetourDetach(reinterpret_cast<PVOID *>(&RTTIFactory_RegistersSymbols), static_cast<PVOID>(RTTIFactory_RegistersSymbols_Hook));
     DetourTransactionCommit();
 }
 
 void Dumper::Dump() {
     auto &factory = FactoryManager::Get();
+
+    auto &type = *factory.Find("MotionMatchingVecN"sv).AsAtom();
+    auto data = malloc(type.mSize);
+    type.mConstructor(type, data);
+    String str;
+    type.mToString(data, str);
+    if (type.mDestructor)
+        type.mDestructor(type, data);
+    free(data);
 
     puts("Scanning types for unreferenced members...");
     for (auto type: factory.Types())
@@ -280,6 +231,7 @@ void Dumper::Dump() {
     std::sort(types.begin(), types.end(), TypeComparator);
 
     puts("Exporting types...");
-    JsonExporter("dump/hfw").Export(types);
-    IdaExporter("dump/hfw").Export(types);
+    AttrExporter("dump/ds2").Export(types);
+    JsonExporter("dump/ds2").Export(types);
+    IdaExporter("dump/ds2").Export(types);
 }

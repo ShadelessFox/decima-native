@@ -4,6 +4,7 @@
 #include "Decima/Core/ExportedSymbolGroup.h"
 
 #include <format>
+#include <print>
 #include <cassert>
 
 constexpr auto rebase = [](auto inPtr) {
@@ -22,6 +23,8 @@ constexpr auto rebase = [](auto inPtr) {
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:
             return "RTTIEnum";
+        case RTTIKind::BitSet:
+            return "RTTIBitSet";
         case RTTIKind::Compound:
             return "RTTICompound";
         case RTTIKind::POD:
@@ -43,6 +46,8 @@ constexpr auto rebase = [](auto inPtr) {
         case RTTIKind::Enum:
         case RTTIKind::EnumFlags:
             return reinterpret_cast<const RTTIEnum &>(inType).mTypeName;
+        case RTTIKind::BitSet:
+            return reinterpret_cast<const RTTIBitSet &>(inType).mTypeName;
         case RTTIKind::Compound:
             return reinterpret_cast<const RTTICompound &>(inType).mTypeName;
         case RTTIKind::POD:
@@ -85,17 +90,19 @@ static main() {
         ExportFunctions(*type);
     }
 
-    fprintf(mFile, "\t// Exported symbols\n");
+    if constexpr (false) {
+        fprintf(mFile, "\t// Exported symbols\n");
 
-    const auto& symbols = ExportedSymbols::Get();
-    for (const auto& group : symbols.mGroups) {
-        ExportSymbols(*group);
-    }
+        const auto& symbols = ExportedSymbols::Get();
+        for (const auto& group : symbols.mGroups) {
+            ExportSymbols(*group);
+        }
 
-    fprintf(mFile, "\t// Symbol Hashes\n");
+        fprintf(mFile, "\t// Symbol Hashes\n");
 
-    for (const auto& [symbol, hash] : symbols.mAllSymbols) {
-        fprintf(mFile, "\t // %s hash=%#08x address=%#llx\n", symbol->mName, hash, rebase(symbol->mLanguage[0].mAddress));
+        for (const auto& [symbol, hash] : symbols.mAllSymbols) {
+            fprintf(mFile, "\t // %s hash=%#08x address=%#llx\n", symbol->mName, hash, rebase(symbol->mLanguage[0].mAddress));
+        }
     }
 
     fputs("}", mFile);
