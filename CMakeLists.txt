@@ -9,23 +9,22 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -DWIN32_EXTRA_LE
 add_subdirectory(libs)
 
 add_library(decima_native SHARED
-        source/Decima/Core/GGUUID.cpp
         source/Decima/Core/RTTI.cpp
         source/Exporter/Exporter.cpp
         source/Exporter/AttrExporter.cpp
         source/Exporter/IdaExporter.cpp
         source/Exporter/JsonExporter.cpp
+        source/Exporter/JsonSymbolExporter.cpp
         source/Util/json.cpp
         source/Util/Offsets.cpp
         source/Util/XUtil.cpp
         source/Dumper.cpp
-        source/Overlay.cpp
         source/exports.c
         source/main.cpp
 )
 
 target_include_directories(decima_native PRIVATE source)
-target_link_libraries(decima_native PRIVATE pattern16 detours imgui nixxes dxguid)
+target_link_libraries(decima_native PRIVATE pattern16 detours nixxes dxguid)
 set_target_properties(decima_native PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_custom_command(TARGET decima_native POST_BUILD

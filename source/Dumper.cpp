@@ -12,10 +12,12 @@
 #include "Decima/Core/ExportedSymbolGroup.h"
 #include "Decima/Core/FactoryManager.h"
 #include "Decima/Core/GraphProgramResource.h"
+#include "Decima/Core/FRGBAColor.h"
 
 #include "Exporter/AttrExporter.h"
 #include "Exporter/JsonExporter.h"
 #include "Exporter/IdaExporter.h"
+#include "Exporter/JsonSymbolExporter.h"
 
 #include "nixxes_log.h"
 
@@ -163,20 +165,43 @@ static void ScanMemoryForTypes() {
     }
 }
 
+static void DSDebugPrintString_PrintString_Hook(pcTChar inText, bool inUnk1, bool inUnk2, FRGBAColor inColor, float inUnk3) {
+    (void) inColor;
+    std::println("[DEBUG] {} (inUnk1: {}, inUnk2: {}, inUnk3: {})", inText, inUnk1, inUnk2, inUnk3);
+}
+
+static void GraphProgramInstance_sOnNodeGraphAlert_Hook(pcTChar inText, bool inUnk) {
+    std::println("[GRAPH ALERT] {} (inUnk: {})", inText, inUnk);
+}
+
+static void GraphProgramInstance_sOnNodeGraphAlertWithName_Hook(pcTChar inText, pcTChar inUnk1, pcTChar inUnk2, bool inUnk) {
+    std::println("[GRAPH ALERT] {} (inUnk1: {}, inUnk2: {}, inUnk: {})", inText, inUnk1, inUnk2, inUnk);
+}
+
+static void GraphProgramInstance_sOnNodeGraphTrace_Hook(const GGUUID& inUUID, pcTChar inText) {
+    std::println("[GRAPH TRACE] {} {}", inText, inUUID);
+}
+
 static void (*RTTIFactory_RegistersSymbols)(void *);
 
 static void RTTIFactory_RegistersSymbols_Hook(void *inUnk) {
     RTTIFactory_RegistersSymbols(inUnk);
 
-    // static auto registered = [] {
-    //     for (auto &[symbol, _]: ExportedSymbols::Get().mAllSymbols) {
-    //         if (symbol->mKind == ExportedSymbol::Kind::Function) {
-    //             Offsets::MapAddress(symbol->mName, reinterpret_cast<uintptr_t>(symbol->mLanguage[0].mAddress));
-    //         }
-    //     }
-    //     return true;
-    // }();
-    // (void) registered;
+    static std::unordered_map<std::string_view, void*> Hooks{
+        // @formatter:off
+        {"DSDebugPrintString_sExportedPrintString"sv, reinterpret_cast<void*>(DSDebugPrintString_PrintString_Hook)},
+        {"GraphProgramInstance::sOnNodeGraphAlert"sv, reinterpret_cast<void*>(GraphProgramInstance_sOnNodeGraphAlert_Hook)},
+        {"GraphProgramInstance::sOnNodeGraphAlertWithName"sv, reinterpret_cast<void*>(GraphProgramInstance_sOnNodeGraphAlertWithName_Hook)},
+        {"GraphProgramInstance::sOnNodeGraphTrace"sv, reinterpret_cast<void*>(GraphProgramInstance_sOnNodeGraphTrace_Hook)}
+        // @formatter:on
+    };
+
+    for (auto & [symbol, _] : ExportedSymbols::Get().mAllSymbols) {
+        if (auto it = Hooks.find(symbol->mName); it != Hooks.end()) {
+            symbol->mLanguage[0].mAddress = it->second;
+            std::println("Hooked {}", symbol->mName);
+        }
+    }
 
     Dumper::Dump();
     ExitProcess(0);
@@ -188,6 +213,7 @@ void Dumper::Attach() {
     Offsets::MapSignature("String::~String", "48 8B 11 48 8D 05 ? ? ? ? 48 83 EA 10 48 3B D0 0F 84 ? ? ? ? B8");
 
     Offsets::MapAddress("FactoryManager::Instance", Offsets::OffsetFromInstruction("48 8B 0D ? ? ? ? 89 44 24 2C E8 ? ? ? ? 48 89 83 B0 00 00 00 48 83 C4 30 5B C3", 3));
+    Offsets::MapAddress("RTTIFactory::sExportedSymbols", Offsets::OffsetFromInstruction("48 8D 0D ? ? ? ? 48 89 7C 24 58 4C 89 6C 24 48 4C 89 74 24 40 E8 ? ? ? ? 4C 8B", 3));
     Offsets::MapSignature("RTTIFactory::RegisterType", "48 89 54 24 10 55 56 57 48 8D 6C 24 F0 48 81 EC 10 01 00 00 0F B6 42");
     Offsets::MapSignature("RTTIFactory::RegisterAllTypes", "40 55 48 8B EC 48 83 EC 70 80 3D ? ? ? ? ? 0F 85 ? ? ? ? 48 89");
     Offsets::MapSignature("RTTIFactory::RegisterSymbols", "48 89 4C 24 08 56 48 83 EC 70 48 89 5C 24 68 48 8D 0D ? ? ? ? 48 89");
@@ -234,4 +260,5 @@ void Dumper::Dump() {
     AttrExporter("dump/ds2").Export(types);
     JsonExporter("dump/ds2").Export(types);
     IdaExporter("dump/ds2").Export(types);
+    JsonSymbolExporter("dump/ds2_symbols.json").ExportSymbols();
 }

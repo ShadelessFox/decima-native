@@ -1,14 +1,10 @@
 #pragma once
 
 #include <cstdint>
-#include <array>
 #include <intsafe.h>
-#include <string>
+#include <format>
 
 class GGUUID final {
-public:
-    [[nodiscard]] std::string ToString() const;
-
 public:
     uint8_t mData0;
     uint8_t mData1;
@@ -26,4 +22,22 @@ public:
     uint8_t mData13;
     uint8_t mData14;
     uint8_t mData15;
+};
+
+template<>
+struct std::formatter<GGUUID> {
+    constexpr auto parse(std::format_parse_context &ctx) {
+        return ctx.begin();
+    }
+
+    auto format(const GGUUID &value, std::format_context &ctx) const {
+        return std::format_to(
+            ctx.out(),
+            "{:02X}{:02X}{:02X}{:02X}-{:02X}{:02X}-{:02X}{:02X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}",
+            value.mData3, value.mData2, value.mData1, value.mData0,
+            value.mData5, value.mData4,
+            value.mData7, value.mData6,
+            value.mData8, value.mData9,
+            value.mData10, value.mData11, value.mData12, value.mData13, value.mData14, value.mData15);
+    }
 };
