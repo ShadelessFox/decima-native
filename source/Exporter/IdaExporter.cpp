@@ -7,8 +7,10 @@
 #include <print>
 #include <cassert>
 
+#include <Windows.h>
+
 constexpr auto rebase = [](auto inPtr) {
-    constexpr uintptr_t Base = 0;
+    static auto Base = reinterpret_cast<uint64_t>(GetModuleHandleW(nullptr));
     return reinterpret_cast<uintptr_t>(inPtr) - Base;
 };
 
